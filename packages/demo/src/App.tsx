@@ -58,11 +58,20 @@ const App: Component<
 	}
 > = function (cx) {
 	this.activeTab ??= "browser";
+	document.title = demoSettingsStore.appName;
+	document.documentElement.style.setProperty(
+		"--accent",
+		demoSettingsStore.accentColor
+	);
 	const isSafari =
 		/^((?!chrome|android).)*safari/i.test(navigator.userAgent) &&
 		navigator.vendor.includes("Apple");
 	return (
-		<div>
+		<div
+			class={use(demoSettingsStore.compactMode).map((compact) =>
+				compact ? "compact" : ""
+			)}
+		>
 			{isSafari ? (
 				<div class="safari-warning">
 					Safari may not display proxied images correctly. For the best
@@ -241,6 +250,7 @@ App.style = css`
 		color: #fff;
 		border-color: #4a4a4a;
 		margin-bottom: -1px;
+		box-shadow: inset 0 -2px var(--accent, #60a5fa);
 	}
 	.top-actions {
 		display: flex;
@@ -267,7 +277,7 @@ App.style = css`
 		box-shadow: 0 0 7px currentColor;
 	}
 	.connection-status.online .status-dot {
-		background: #22c55e;
+		background: var(--accent, #22c55e);
 	}
 	.connection-status.offline .status-dot {
 		background: #ef4444;
@@ -280,6 +290,14 @@ App.style = css`
 		line-height: 1.35;
 		padding: 0.48em 0.8em;
 		text-align: center;
+	}
+	:scope.compact .tab-button {
+		padding: 0.12em 0.45em;
+		min-height: 23px;
+		font-size: 0.76em;
+	}
+	:scope.compact .top-actions {
+		min-height: 23px;
 	}
 	@media (max-width: 900px) {
 		.status-label {

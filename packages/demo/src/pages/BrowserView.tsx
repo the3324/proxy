@@ -1,6 +1,5 @@
 import {
 	css,
-	type Delegate,
 	type Component,
 	createState,
 } from "dreamland/core";
@@ -16,12 +15,47 @@ export const browserState = createState({
 	frame: null! as Frame,
 });
 
+let keyboardShortcutsInstalled = false;
+
+function escapeHtml(value: string) {
+	const entities: Record<string, string> = {
+		"&": "&amp;",
+		"<": "&lt;",
+		">": "&gt;",
+		'"': "&quot;",
+		"'": "&#39;",
+	};
+	return value.replace(/[&<>"']/g, (character) => entities[character]!);
+}
+
 export const Omnibox: Component = function (cx) {
 	const navigate = () => {
-		if (!browserState.url.startsWith("http")) {
-			browserState.url = `https://${browserState.url}`;
-		}
+		const value = browserState.url.trim();
+		const isHttpUrl = /^https?:\/\//i.test(value);
+		const looksLikeHost = /^(localhost|\d{1,3}(\.\d{1,3}){3})(:\d+)?(\/|$)/i.test(value) || value.includes(".");
+		browserState.url = isHttpUrl
+			? value
+			: looksLikeHost
+				? `https://${value}`
+				: `https://www.google.com/search?q=${encodeURIComponent(value)}`;
 		browserState.frame?.go(browserState.url);
+	};
+
+	cx.mount = () => {
+		if (keyboardShortcutsInstalled) return;
+		keyboardShortcutsInstalled = true;
+		window.addEventListener("keydown", (event) => {
+			if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "l") {
+				event.preventDefault();
+				(document.getElementById("search") as HTMLInputElement | null)?.select();
+			} else if (event.altKey && event.key === "ArrowLeft") {
+				event.preventDefault();
+				browserState.frame?.back();
+			} else if (event.altKey && event.key === "ArrowRight") {
+				event.preventDefault();
+				browserState.frame?.forward();
+			}
+		});
 	};
 	return (
 		<form
@@ -62,6 +96,28 @@ export const Omnibox: Component = function (cx) {
 						on:click={() => window.open(browserState.url, "_blank", "noopener,noreferrer")}
 					>
 						<span class="material-symbols-outlined">open_in_new</span>
+					</button>
+					<button
+						type="button"
+						class="nav-btn"
+						title="Copy current address"
+						aria-label="Copy current address"
+						on:click={() => navigator.clipboard.writeText(browserState.url)}
+					>
+						<span class="material-symbols-outlined">content_copy</span>
+					</button>
+					<button
+						type="button"
+						class="nav-btn"
+						title="Toggle fullscreen"
+						aria-label="Toggle fullscreen"
+						on:click={() =>
+							document.fullscreenElement
+								? document.exitFullscreen()
+								: document.documentElement.requestFullscreen()
+						}
+					>
+						<span class="material-symbols-outlined">fullscreen</span>
 					</button>
 				</div>
 				<input
@@ -198,6 +254,10 @@ const BrowserView: Component<
 				dateStyle: "short",
 				timeStyle: "short",
 			})
+		);
+		realHomepage = realHomepage.replaceAll(
+			"{{APP_NAME}}",
+			escapeHtml(demoSettingsStore.appName)
 		);
 		this.frameel.src = `data:text/html;base64,${btoa(realHomepage)}`;
 		initPlugin(browserState.frame);

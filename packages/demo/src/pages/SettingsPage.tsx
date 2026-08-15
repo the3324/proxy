@@ -7,6 +7,8 @@ import {
 	demoSettingsStore,
 	normalizeHomeUrl,
 	normalizeMaxRequests,
+	normalizeAppName,
+	normalizeAccentColor,
 	normalizeTransport,
 	normalizeWispUrl,
 } from "../store";
@@ -18,6 +20,9 @@ const SettingsView: Component<
 		transportInput: AvailableTransports;
 		homeUrlInput: string;
 		maxRequestsInput: string;
+		appNameInput: string;
+		accentColorInput: string;
+		compactModeInput: boolean;
 		status: string;
 		error: string;
 	},
@@ -27,6 +32,9 @@ const SettingsView: Component<
 	this.transportInput ??= demoSettingsStore.transport;
 	this.homeUrlInput ??= demoSettingsStore.homeUrl;
 	this.maxRequestsInput ??= String(demoSettingsStore.maxRequests);
+	this.appNameInput ??= demoSettingsStore.appName;
+	this.accentColorInput ??= demoSettingsStore.accentColor;
+	this.compactModeInput ??= demoSettingsStore.compactMode;
 	this.status ??= "";
 	this.error ??= "";
 
@@ -35,6 +43,9 @@ const SettingsView: Component<
 		this.transportInput = demoSettingsStore.transport;
 		this.homeUrlInput = demoSettingsStore.homeUrl;
 		this.maxRequestsInput = String(demoSettingsStore.maxRequests);
+		this.appNameInput = demoSettingsStore.appName;
+		this.accentColorInput = demoSettingsStore.accentColor;
+		this.compactModeInput = demoSettingsStore.compactMode;
 	};
 
 	const applySettings = async () => {
@@ -46,6 +57,8 @@ const SettingsView: Component<
 			const nextTransport = normalizeTransport(this.transportInput);
 			const nextHomeUrl = normalizeHomeUrl(this.homeUrlInput);
 			const nextMaxRequests = normalizeMaxRequests(this.maxRequestsInput);
+			const nextAppName = normalizeAppName(this.appNameInput);
+			const nextAccentColor = normalizeAccentColor(this.accentColorInput);
 			const wispChanged = nextWispUrl !== demoSettingsStore.wispUrl;
 			const transportChanged = nextTransport !== demoSettingsStore.transport;
 
@@ -53,11 +66,18 @@ const SettingsView: Component<
 			demoSettingsStore.transport = nextTransport;
 			demoSettingsStore.homeUrl = nextHomeUrl;
 			demoSettingsStore.maxRequests = nextMaxRequests;
+			demoSettingsStore.appName = nextAppName;
+			demoSettingsStore.accentColor = nextAccentColor;
+			demoSettingsStore.compactMode = this.compactModeInput;
+			document.title = nextAppName;
+			document.documentElement.style.setProperty("--accent", nextAccentColor);
 
 			this.wispUrlInput = nextWispUrl;
 			this.transportInput = nextTransport;
 			this.homeUrlInput = nextHomeUrl;
 			this.maxRequestsInput = String(nextMaxRequests);
+			this.appNameInput = nextAppName;
+			this.accentColorInput = nextAccentColor;
 
 			if (wispChanged || transportChanged) {
 				controller.setTransport(getTransport());
@@ -80,6 +100,9 @@ const SettingsView: Component<
 		this.transportInput = demoSettingsDefaults.transport;
 		this.homeUrlInput = demoSettingsDefaults.homeUrl;
 		this.maxRequestsInput = String(demoSettingsDefaults.maxRequests);
+		this.appNameInput = demoSettingsDefaults.appName;
+		this.accentColorInput = demoSettingsDefaults.accentColor;
+		this.compactModeInput = demoSettingsDefaults.compactMode;
 		await applySettings();
 	};
 
@@ -98,12 +121,52 @@ const SettingsView: Component<
 	return (
 		<div class="settings-panel">
 			<div class="settings-header">
-				<h2>Demo Settings</h2>
+				<h2>Browser Settings</h2>
 				<p>
 					Update runtime settings without rebuilding the demo. Wisp changes
 					apply to future requests only.
 				</p>
 			</div>
+
+			<div class="settings-section-title">Appearance</div>
+			<label class="field">
+				<span class="label">Browser name</span>
+				<input
+					type="text"
+					maxLength="40"
+					value={use(this.appNameInput)}
+					on:input={(e: InputEvent) => {
+						this.appNameInput = (e.target as HTMLInputElement).value;
+					}}
+				/>
+			</label>
+
+			<label class="field color-field">
+				<span class="label">Accent color</span>
+				<div class="color-row">
+					<input
+						type="color"
+						value={use(this.accentColorInput)}
+						on:input={(e: InputEvent) => {
+							this.accentColorInput = (e.target as HTMLInputElement).value;
+						}}
+					/>
+					<code>{use(this.accentColorInput)}</code>
+				</div>
+			</label>
+
+			<label class="toggle-field">
+				<input
+					type="checkbox"
+					checked={use(this.compactModeInput)}
+					on:change={(e: Event) => {
+						this.compactModeInput = (e.target as HTMLInputElement).checked;
+					}}
+				/>
+				<span>Compact toolbar</span>
+			</label>
+
+			<div class="settings-section-title">Connection and browsing</div>
 
 			<label class="field">
 				<span class="label">Wisp server</span>
@@ -243,6 +306,41 @@ SettingsView.style = css`
 		gap: 6px;
 		margin-bottom: 14px;
 		max-width: 720px;
+	}
+
+	.settings-section-title {
+		margin: 20px 0 12px;
+		color: #8fbce8;
+		font-size: 0.74rem;
+		font-weight: 700;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+	}
+
+	.color-row,
+	.toggle-field {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+
+	.color-row input[type="color"] {
+		width: 54px;
+		height: 34px;
+		padding: 2px;
+	}
+
+	.color-row code {
+		color: #b8c2cc;
+	}
+
+	.toggle-field {
+		margin-bottom: 16px;
+		font-size: 0.86rem;
+	}
+
+	.toggle-field input[type="checkbox"] {
+		width: auto;
 	}
 
 	.label {

@@ -17,6 +17,9 @@ const DEFAULT_WISP_URL =
 const DEFAULT_TRANSPORT: AvailableTransports = "libcurl";
 const DEFAULT_HOME_URL = "https://google.com";
 const DEFAULT_MAX_REQUESTS = 200;
+const DEFAULT_APP_NAME = "Scramjet Browser";
+const DEFAULT_ACCENT_COLOR = "#60a5fa";
+const DEFAULT_COMPACT_MODE = false;
 
 export const demoSettingsStore = createStore(
 	{
@@ -24,6 +27,9 @@ export const demoSettingsStore = createStore(
 		wispUrl: DEFAULT_WISP_URL,
 		homeUrl: DEFAULT_HOME_URL,
 		maxRequests: DEFAULT_MAX_REQUESTS,
+		appName: DEFAULT_APP_NAME,
+		accentColor: DEFAULT_ACCENT_COLOR,
+		compactMode: DEFAULT_COMPACT_MODE,
 	},
 	{
 		ident: "scramjet-demo-settings",
@@ -88,9 +94,27 @@ export function normalizeMaxRequests(value: string | number) {
 	return rounded;
 }
 
+export function normalizeAppName(value: string) {
+	const trimmed = value.trim();
+	if (!trimmed) throw new TypeError("Browser name is required.");
+	if (trimmed.length > 40) throw new RangeError("Browser name must be 40 characters or fewer.");
+	return trimmed;
+}
+
+export function normalizeAccentColor(value: string) {
+	const trimmed = value.trim();
+	if (!/^#[0-9a-f]{6}$/i.test(trimmed)) {
+		throw new TypeError("Accent color must be a six-digit hex color.");
+	}
+	return trimmed.toLowerCase();
+}
+
 export const demoSettingsDefaults = {
 	wispUrl: normalizeWispUrl(DEFAULT_WISP_URL),
 	transport: DEFAULT_TRANSPORT,
 	homeUrl: normalizeHomeUrl(DEFAULT_HOME_URL),
 	maxRequests: DEFAULT_MAX_REQUESTS,
+	appName: DEFAULT_APP_NAME,
+	accentColor: DEFAULT_ACCENT_COLOR,
+	compactMode: DEFAULT_COMPACT_MODE,
 };
