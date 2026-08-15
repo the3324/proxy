@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Scramjet Standalone Frontend</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23FF6B6B'/></svg>" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&amp;family=Inter+Tight:ital,wght@0,100..900;1,100..900&amp;family=Inter:wght@100..900&amp;display=swap&amp;"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        background: linear-gradient(135deg, #050505 0%, #1a1a1a 100%);
+        color: #ffffff;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .container {
+        display: flex;
+        width: 100%;
+        height: 100%;
+      }
+
+      .sidebar {
+        width: 350px;
+        background: #0a0a0a;
+        border-right: 1px solid #333;
+        padding: 20px;
+        overflow-y: auto;
+        box-shadow: 2px 0 20px rgba(0, 0, 0, 0.5);
+      }
+
+      .content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: #050505;
+      }
+
+      .header {
+        padding: 20px;
+        border-bottom: 1px solid #333;
+        background: linear-gradient(to right, #1a1a1a, #0a0a0a);
+      }
+
+      .header h1 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 700;
+        background: linear-gradient(135deg, #FF6B6B, #FF8E72);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .proxy-frame {
+        flex: 1;
+        border: none;
+        background: #000;
+      }
+
+      .section {
+        margin-bottom: 30px;
+      }
+
+      .section-title {
+        font-size: 14px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #888;
+        margin: 0 0 15px 0;
+        border-bottom: 1px solid #222;
+        padding-bottom: 10px;
+      }
+
+      .form-group {
+        margin-bottom: 15px;
+      }
+
+      label {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: #aaa;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        padding: 10px 12px;
+        background: #1a1a1a;
+        border: 1px solid #333;
+        color: #fff;
+        border-radius: 6px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 13px;
+        transition: all 0.2s ease;
+      }
+
+      .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        text-transform: none;
+        letter-spacing: 0;
+        cursor: pointer;
+      }
+
+      .checkbox-label input {
+        width: auto;
+        margin: 0;
+        accent-color: #FF6B6B;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        outline: none;
+        border-color: #FF6B6B;
+        background: #222;
+        box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1);
+      }
+
+      button {
+        width: 100%;
+        padding: 12px 16px;
+        background: linear-gradient(135deg, #FF6B6B, #FF8E72);
+        border: none;
+        color: #fff;
+        font-weight: 700;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.2s ease;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(255, 107, 107, 0.4);
+      }
+
+      button:active {
+        transform: translateY(0);
+      }
+
+      .config-display {
+        background: #1a1a1a;
+        border: 1px solid #333;
+        border-radius: 6px;
+        padding: 12px;
+        font-size: 12px;
+        font-family: "IBM Plex Mono", monospace;
+        color: #888;
+        max-height: 200px;
+        overflow-y: auto;
+        word-break: break-all;
+      }
+
+      .config-display code {
+        color: #FF6B6B;
+      }
+
+      .status {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #FFB84D;
+        margin-right: 8px;
+        animation: pulse 2s infinite;
+      }
+
+      .status.ready {
+        background: #51CF66;
+        animation: none;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      .info-text {
+        font-size: 12px;
+        color: #666;
+        margin-top: 8px;
+        line-height: 1.5;
+      }
+
+      @media (max-width: 768px) {
+        .container {
+          flex-direction: column;
+        }
+
+        .sidebar {
+          width: 100%;
+          border-right: none;
+          border-bottom: 1px solid #333;
+          max-height: 40vh;
+        }
+
+        .content {
+          min-height: 60vh;
+        }
+      }
+
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: #1a1a1a;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 4px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: #555;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <!-- Sidebar Configuration -->
+      <div class="sidebar">
+        <div class="section">
+          <h3 class="section-title">Proxy Configuration</h3>
+
+          <div class="form-group">
+            <label for="urlInput">URL to Proxy</label>
+            <input
+              type="text"
+              id="urlInput"
+              placeholder="https://example.com"
+              value="https://google.com"
+            />
+            <div class="info-text">Enter the website URL you want to access through Scramjet</div>
+          </div>
+
+          <div class="form-group">
+            <label for="transportSelect">Transport Layer</label>
+            <select id="transportSelect">
+              <option value="wisp">WISP (WebSocket)</option>
+              <option value="bare">Bare Server</option>
+            </select>
+            <div class="info-text">Choose the protocol for communicating with the proxy server</div>
+          </div>
+
+          <div class="form-group">
+            <label for="backendSelect">Backend Server</label>
+            <select id="backendSelect">
+              <option value="local">Local (Current Server)</option>
+              <option value="custom">Custom Server</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="customBackendGroup" style="display: none">
+            <label for="customBackend">Backend URL</label>
+            <input
+              type="text"
+              id="customBackend"
+              placeholder="https://your-server.com"
+            />
+          </div>
+
+          <button onclick="navigateToProxy()">Launch Proxy</button>
+        </div>
+
+        <div class="section">
+          <h3 class="section-title">Active Configuration</h3>
+          <div class="config-display">
+            <div><strong>Status:</strong> <span class="status ready"></span>Ready</div>
+            <div style="margin-top: 10px">
+              <strong>Current Config:</strong><br />
+              URL: <code id="configUrl">https://google.com</code><br />
+              Transport: <code id="configTransport">wisp</code><br />
+              Backend: <code id="configBackend">local</code>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3 class="section-title">Advanced Options</h3>
+
+          <div class="form-group">
+            <label for="wispUrl">WISP Server URL (Optional)</label>
+            <input
+              type="text"
+              id="wispUrl"
+              placeholder="Auto-detected"
+            />
+            <div class="info-text">Leave empty for automatic detection</div>
+          </div>
+
+          <div class="form-group">
+            <label for="bareUrl">Bare Server URL (Optional)</label>
+            <input
+              type="text"
+              id="bareUrl"
+              placeholder="Auto-detected"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-label" for="erudaEnabled">
+              <input
+                type="checkbox"
+                id="erudaEnabled"
+                checked
+              />
+              Eruda console in viewed page
+            </label>
+            <div class="info-text">Loads Eruda inside the proxied page so Elements shows the page DOM, not Scramjet's iframe shell</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Content Area -->
+      <div class="content">
+        <div class="header">
+          <h1>Scramjet Proxy</h1>
+        </div>
+        <iframe
+          id="proxyFrame"
+          class="proxy-frame"
+          allow="camera; microphone; clipboard-read; clipboard-write"
+        ></iframe>
+      </div>
+    </div>
+
+    <script>
+      // Initialize from localStorage
+      function initializeConfig() {
+        const saved = JSON.parse(localStorage.getItem("scramjetConfig") || "{}");
+
+        const urlInput = document.getElementById("urlInput");
+        const transportSelect = document.getElementById("transportSelect");
+        const backendSelect = document.getElementById("backendSelect");
+        const wispUrl = document.getElementById("wispUrl");
+        const bareUrl = document.getElementById("bareUrl");
+        const erudaEnabled = document.getElementById("erudaEnabled");
+
+        if (urlInput) urlInput.value = saved.url || "https://google.com";
+        if (transportSelect) transportSelect.value = saved.transport || "wisp";
+        if (backendSelect) backendSelect.value = saved.backend || "local";
+        if (wispUrl) wispUrl.value = saved.wispUrl || "";
+        if (bareUrl) bareUrl.value = saved.bareUrl || "";
+        if (erudaEnabled) erudaEnabled.checked = saved.eruda !== false;
+
+        if (saved.backend === "custom") {
+          const customBackendGroup = document.getElementById("customBackendGroup");
+          if (customBackendGroup) {
+            customBackendGroup.style.display = "block";
+            const customBackend = document.getElementById("customBackend");
+            if (customBackend) customBackend.value = saved.customBackend || "";
+          }
+        }
+
+        updateConfigDisplay();
+      }
+
+      // Update configuration display
+      function updateConfigDisplay() {
+        const urlInput = document.getElementById("urlInput");
+        const transportSelect = document.getElementById("transportSelect");
+        const backendSelect = document.getElementById("backendSelect");
+        const configUrl = document.getElementById("configUrl");
+        const configTransport = document.getElementById("configTransport");
+        const configBackend = document.getElementById("configBackend");
+
+        if (configUrl) configUrl.textContent = urlInput?.value || "https://google.com";
+        if (configTransport) configTransport.textContent = transportSelect?.value || "wisp";
+        if (configBackend) configBackend.textContent = backendSelect?.value || "local";
+      }
+
+      // Handle backend selection change
+      function setupEventListeners() {
+        const backendSelect = document.getElementById("backendSelect");
+        if (backendSelect) {
+          backendSelect.addEventListener("change", (e) => {
+            const customGroup = document.getElementById("customBackendGroup");
+            if (customGroup) {
+              customGroup.style.display = e.target.value === "custom" ? "block" : "none";
+            }
+          });
+        }
+
+        const urlInput = document.getElementById("urlInput");
+        if (urlInput) {
+          urlInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+              navigateToProxy();
+            }
+          });
+        }
+      }
+
+      // Save and navigate to proxy
+      function navigateToProxy() {
+        const urlInput = document.getElementById("urlInput");
+        const transportSelect = document.getElementById("transportSelect");
+        const backendSelect = document.getElementById("backendSelect");
+        const wispUrlInput = document.getElementById("wispUrl");
+        const bareUrlInput = document.getElementById("bareUrl");
+        const customBackendInput = document.getElementById("customBackend");
+        const erudaEnabledInput = document.getElementById("erudaEnabled");
+
+        if (!urlInput || !transportSelect || !backendSelect) return;
+
+        const url = urlInput.value.trim();
+        const transport = transportSelect.value;
+        const backend = backendSelect.value;
+        const wispUrl = (wispUrlInput?.value || "").trim();
+        const bareUrl = (bareUrlInput?.value || "").trim();
+        const customBackend = (customBackendInput?.value || "").trim();
+        const eruda = erudaEnabledInput?.checked !== false;
+
+        // Validate URL
+        try {
+          new URL(url);
+        } catch {
+          alert("Please enter a valid URL (e.g., https://example.com)");
+          return;
+        }
+
+        // Save configuration
+        const config = {
+          url,
+          transport,
+          backend,
+          wispUrl,
+          bareUrl,
+          customBackend,
+          eruda,
+        };
+        localStorage.setItem("scramjetConfig", JSON.stringify(config));
+
+        // Determine backend server (default to public Scramjet instance)
+        let backendServer =
+          backend === "custom" && customBackend
+            ? customBackend
+            : "https://scramjet.mercurywork.shop/";
+
+        if (!backendServer.endsWith("/")) {
+          backendServer += "/";
+        }
+
+        // Create proxy iframe URL with config
+        const configData = {
+          targetUrl: url,
+          transport: transport,
+          wispUrl: wispUrl || `${backendServer}wisp/`,
+          bareUrl: bareUrl || `${backendServer}bare/`,
+          eruda,
+        };
+
+        const proxyPageUrl = `${backendServer}staticbuild/index.html?config=${encodeURIComponent(btoa(JSON.stringify(configData)))}`;
+
+        // Load the proxy in the iframe
+        const proxyFrame = document.getElementById("proxyFrame");
+        if (proxyFrame) {
+          proxyFrame.src = proxyPageUrl;
+        }
+
+        updateConfigDisplay();
+      }
+
+      // Initialize on DOM ready
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", () => {
+          initializeConfig();
+          setupEventListeners();
+        });
+      } else {
+        initializeConfig();
+        setupEventListeners();
+      }
+
+      // Auto-load on page load if config exists
+      window.addEventListener("load", () => {
+        const saved = localStorage.getItem("scramjetConfig");
+        if (saved) {
+          setTimeout(() => {
+            navigateToProxy();
+          }, 100);
+        }
+      });
+
+      // Expose navigateToProxy globally for onclick handlers
+      window.navigateToProxy = navigateToProxy;
+    </script>
+  </body>
+</html>

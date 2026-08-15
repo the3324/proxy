@@ -1,0 +1,111 @@
+name: Deploy Scramjet
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  WASM_BINDGEN_VERSION: "0.2.105"
+
+jobs:
+  build-scramjet:
+    name: Build Scramjet
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "pnpm"
+
+      - name: Install pnpm dependencies
+        run: pnpm install
+
+      - name: Setup Rewriter Toolchain
+        uses: ./.github/actions/setup-rewriter-toolchain
+        with:
+          wasm-bindgen-version: ${{ env.WASM_BINDGEN_VERSION }}
+          rewriter-path: packages/core/rewriter
+          github-token: ${{ github.token }}
+
+      - name: Setup Rust nightly for WASM
+        run: |
+          rustup toolchain install nightly
+          rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
+          rustup target add wasm32-unknown-unknown --toolchain nightly-x86_64-unknown-linux-gnu
+
+      - name: Build Rewriter WASM
+        run: RELEASE=1 pnpm run rewriter:build
+
+      - name: Build all packages
+        env:
+          # Set the repository variable WISP_URL to your own wss:// endpoint.
+          # The public fallback is convenient for testing but is not under your control.
+          VITE_WISP_URL: ${{ vars.WISP_URL || 'wss://anura.pro/' }}
+        run: pnpm run build
+
+      - name: Setup staticbuild for deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "=== Setting up staticbuild directory ==="
+
+          rm -rf staticbuild
+          cp -r packages/demo/dist staticbuild
+          touch staticbuild/.nojekyll
+
+          # Verify all required files exist
+          echo "=== Verifying staticbuild contents ==="
+          for file in staticbuild/index.html staticbuild/sw.js staticbuild/scramjet/scramjet.js staticbuild/scramjet/scramjet.wasm staticbuild/controller/controller.api.js staticbuild/controller/controller.inject.js staticbuild/controller/controller.sw.js; do
+            if [ -f "$file" ]; then
+              echo "$file"
+            else
+              echo "::error::$file not found"
+              exit 1
+            fi
+          done
+
+          echo "=== Final staticbuild structure ==="
+          find staticbuild -type f | sort
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: staticbuild
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build-scramjet
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
