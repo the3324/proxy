@@ -37,13 +37,15 @@ const ConnectionStatus: Component<{}, {}, { status: string }> = function (cx) {
 			title={`Wisp: ${demoSettingsStore.wispUrl}`}
 		>
 			<span class="status-dot"></span>
-			{use(this.status).map((status) =>
-				status === "online"
-					? "Wisp connected"
-					: status === "offline"
-						? "Wisp unavailable"
-						: "Checking Wisp"
-			)}
+			<span class="status-label">
+				{use(this.status).map((status) =>
+					status === "online"
+						? "Wisp connected"
+						: status === "offline"
+							? "Wisp unavailable"
+							: "Checking Wisp"
+				)}
+			</span>
 		</span>
 	);
 };
@@ -198,6 +200,7 @@ App.style = css`
 	.top-bar {
 		display: flex;
 		align-items: stretch;
+		min-width: 0;
 		gap: 0;
 		margin-bottom: 0;
 		border-bottom: 1px solid #4a4a4a;
@@ -208,8 +211,12 @@ App.style = css`
 		flex: 1;
 		align-items: stretch;
 		gap: 0;
+		min-width: 0;
+		overflow-x: auto;
+		scrollbar-width: thin;
 	}
 	.tab-button {
+		flex: 0 0 auto;
 		border: 1px solid transparent;
 		border-bottom: 0;
 		background: transparent;
@@ -237,6 +244,7 @@ App.style = css`
 	}
 	.top-actions {
 		display: flex;
+		flex: 0 0 auto;
 		align-items: center;
 		margin-left: auto;
 		padding: 0 0.35em;
@@ -272,6 +280,29 @@ App.style = css`
 		line-height: 1.35;
 		padding: 0.48em 0.8em;
 		text-align: center;
+	}
+	@media (max-width: 900px) {
+		.status-label {
+			display: none;
+		}
+		.top-actions {
+			padding-left: 0.15em;
+			gap: 0.25em;
+		}
+	}
+	@media (max-width: 640px) {
+		.top-bar {
+			flex-wrap: wrap;
+		}
+		.tab-bar {
+			flex-basis: 100%;
+			order: 1;
+		}
+		.top-actions {
+			width: 100%;
+			justify-content: flex-end;
+			order: 0;
+		}
 	}
 	.tab-panel {
 		flex: 1;
