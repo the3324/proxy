@@ -111,25 +111,25 @@ jobs:
         working-directory: packages/controller
 
       - name: Upload Artifact (scramjet/core)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: scramjet
           path: packages/core/dist/*
 
       - name: Upload Artifact (scramjet/core) (packaged)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: scramjet-package
           path: packages/core/mercuryworkshop-scramjet-*.tgz
 
       - name: Upload Artifact (scramjet/controller)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: scramjet-controller
           path: packages/controller/dist/*
 
       - name: Upload Artifact (scramjet/controller) (packaged)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: scramjet-controller-package
           path: packages/controller/mercuryworkshop-scramjet-controller-*.tgz
@@ -383,7 +383,7 @@ jobs:
         working-directory: packages/demo
 
       - name: Upload Artifact (frontend)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend
           path: ./packages/demo/dist
