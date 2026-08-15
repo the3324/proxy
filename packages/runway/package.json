@@ -23,7 +23,7 @@
 	},
 	"devDependencies": {
 		"@types/express": "^4.17.21",
-		"@types/node": "^22.0.0",
+		"@types/node": "^26.2.0",
 		"@types/istanbul-lib-coverage": "^2.0.6",
 		"istanbul-lib-coverage": "^3.2.2",
 		"v8-to-istanbul": "^9.3.0"
