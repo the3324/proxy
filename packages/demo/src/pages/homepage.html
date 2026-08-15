@@ -22,22 +22,21 @@
 					"Helvetica Neue",
 					Arial,
 					sans-serif;
-				background: #0f0f0f;
+				background:
+					radial-gradient(circle at 18% 0%, #1d2a45 0, transparent 38%),
+					#0b0d12;
 				color: #e5e7eb;
 				display: grid;
 				place-items: start center;
 				padding: 30px 18px;
 			}
 			.sheet {
-				width: min(760px, 100%);
-				/*border: 1px solid #222;
-        background: #111;
-		*/
-				padding: 26px 28px;
+				width: min(900px, 100%);
+				padding: 40px 28px;
 			}
 			h1 {
 				margin: 0 0 8px;
-				font-size: 1.55rem;
+				font-size: clamp(2rem, 6vw, 3.4rem);
 				font-weight: 650;
 				letter-spacing: 0.005em;
 			}
@@ -79,11 +78,57 @@
 			a:hover {
 				text-decoration: underline;
 			}
+			.eyebrow {
+				color: #7dd3fc;
+				font-size: 0.75rem;
+				font-weight: 750;
+				letter-spacing: 0.14em;
+				text-transform: uppercase;
+			}
+			.intro {
+				font-size: 1.05rem;
+				max-width: 62ch;
+			}
+			.quick-links {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+				gap: 12px;
+				margin: 28px 0 34px;
+			}
+			.quick-link {
+				display: block;
+				padding: 17px;
+				border: 1px solid #2d3444;
+				border-radius: 14px;
+				background: rgba(22, 27, 38, 0.9);
+				transition: transform 120ms ease, border-color 120ms ease;
+			}
+			.quick-link:hover {
+				border-color: #60a5fa;
+				text-decoration: none;
+				transform: translateY(-2px);
+			}
+			.quick-link strong,
+			.quick-link span {
+				display: block;
+			}
+			.quick-link span {
+				color: #9ca3af;
+				font-size: 0.8rem;
+				margin-top: 5px;
+			}
+			.notice {
+				border: 1px solid #26364f;
+				border-radius: 12px;
+				background: rgba(15, 23, 42, 0.75);
+				padding: 15px 17px;
+			}
 		</style>
 	</head>
 	<body>
 		<main class="sheet">
-			<h1>Welcome to Scramjet!</h1>
+			<div class="eyebrow">Private browsing workspace</div>
+			<h1>Browse through Scramjet</h1>
 			<p class="meta">
 				Version {{SCRAMJET_VERSION}} |
 				<a
@@ -95,51 +140,37 @@
 			</p>
 
 			<section class="section">
-				<p>
+				<p class="intro">
 					<a href="https://github.com/MercuryWorkshop/scramjet" target="_blank"
 						><strong>Scramjet</strong></a
 					>
-					is an experimental <strong>interception-based web proxy</strong>,
-					designed to evade internet censorship and bypass arbitrary browser
-					restrictions.<br /><br />
-					Scramjet allows you to sandbox arbitrary web content, bypass CORS
-					restrictions on loading websites, and instrument and debug websites
-					inside the browser itself. This is accomplished through a combination
-					of interception, rewriting, and sandboxing techniques. You can learn
-					more about the technical details
-					<a
-						href="https://developer.puter.com/blog/how-I-ported-the-web-to-the-web/"
-						target="_blank"
-						><strong>here</strong></a
-					>.<br /><br />
-					If you're interested in contributing to scramjet, or want to build
-					your own web proxy or application using it, you should check out the
-					<a href="https://github.com/MercuryWorkshop/scramjet" target="_blank"
-						><strong>GitHub repository</strong></a
-					>.<br /><br />
-					This website is a demo of scramjet's capabilities, letting you browse
-					the web proxied through scramjet, inspect how scramjet rewrites
-					requests and responses, and see how scramjet handles your custom
-					content in the playground.
+					is an experimental interception-based web proxy. Enter any full URL
+					in the address bar above, or choose a shortcut below.
 				</p>
 			</section>
 
-			<section class="section">
-				<span class="label">Browser</span>
+			<nav class="quick-links" aria-label="Quick links">
+				<a class="quick-link" href="https://now.gg/">
+					<strong>now.gg</strong><span>Cloud games</span>
+				</a>
+				<a class="quick-link" href="https://play.geforcenow.com/">
+					<strong>GeForce NOW</strong><span>Cloud gaming</span>
+				</a>
+				<a class="quick-link" href="https://www.youtube.com/">
+					<strong>YouTube</strong><span>Video</span>
+				</a>
+				<a class="quick-link" href="https://www.reddit.com/">
+					<strong>Reddit</strong><span>Communities</span>
+				</a>
+			</nav>
+
+			<section class="section notice">
+				<span class="label">Connection and privacy</span>
 				<p>
-					Try entering a URL in the box above to browse the web proxied through
-					scramjet.<br />
-					All traffic sent through scramjet is
-					<strong>fully end-to-end encrypted</strong> with TLS, powered by
-					<a href="https://github.com/ading2210/libcurl.js" target="_blank"
-						><strong>libcurl.js</strong></a
-					>
-					and the
-					<a
-						href="https://github.com/MercuryWorkshop/wisp-protocol"
-						target="_blank"
-						><strong>wisp protocol</strong></a
-					>.
+					The indicator above shows whether the configured Wisp endpoint is
+					reachable. Traffic passes through that endpoint, so only use a Wisp
+					service you trust. Chromium browsers provide the best compatibility;
+					Safari may fail to display some proxied images.
 				</p>
 			</section>
 

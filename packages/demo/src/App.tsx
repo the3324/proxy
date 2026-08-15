@@ -1,5 +1,4 @@
-import { css, createDelegate, type Component } from "dreamland/core";
-import type { Frame } from "@mercuryworkshop/scramjet-controller";
+import { css, type Component } from "dreamland/core";
 import FlagEditor from "./components/FlagEditor";
 import BrowserView from "./pages/BrowserView";
 import RequestViewer from "./pages/RequestViewer";
@@ -7,6 +6,47 @@ import PlaygroundView from "./pages/Playground";
 import SettingsView from "./pages/SettingsPage";
 import { Omnibox } from "./pages/BrowserView";
 import { requestsState } from "./pages/RequestViewer";
+import { demoSettingsStore } from "./store";
+
+const ConnectionStatus: Component<{}, {}, { status: string }> = function (cx) {
+	this.status ??= "checking";
+
+	cx.mount = () => {
+		let settled = false;
+		const socket = new WebSocket(demoSettingsStore.wispUrl);
+		const finish = (status: string) => {
+			if (settled) return;
+			settled = true;
+			this.status = status;
+			socket.close();
+		};
+		const timeout = window.setTimeout(() => finish("offline"), 6000);
+		socket.addEventListener("open", () => {
+			window.clearTimeout(timeout);
+			finish("online");
+		});
+		socket.addEventListener("error", () => {
+			window.clearTimeout(timeout);
+			finish("offline");
+		});
+	};
+
+	return (
+		<span
+			class={use(this.status).map((status) => `connection-status ${status}`)}
+			title={`Wisp: ${demoSettingsStore.wispUrl}`}
+		>
+			<span class="status-dot"></span>
+			{use(this.status).map((status) =>
+				status === "online"
+					? "Wisp connected"
+					: status === "offline"
+						? "Wisp unavailable"
+						: "Checking Wisp"
+			)}
+		</span>
+	);
+};
 
 const App: Component<
 	{},
@@ -16,8 +56,17 @@ const App: Component<
 	}
 > = function (cx) {
 	this.activeTab ??= "browser";
+	const isSafari =
+		/^((?!chrome|android).)*safari/i.test(navigator.userAgent) &&
+		navigator.vendor.includes("Apple");
 	return (
 		<div>
+			{isSafari ? (
+				<div class="safari-warning">
+					Safari may not display proxied images correctly. For the best
+					experience, use Chrome, Edge, or another Chromium browser.
+				</div>
+			) : null}
 			<div class="top-bar">
 				<div class="tab-bar">
 					<button
@@ -68,6 +117,7 @@ const App: Component<
 						.andThen(<Omnibox />)}
 				</div>
 				<div class="top-actions">
+					<ConnectionStatus />
 					<FlagEditor inline={true} />
 				</div>
 			</div>
@@ -191,6 +241,37 @@ App.style = css`
 		margin-left: auto;
 		padding: 0 0.35em;
 		min-height: 28px;
+		gap: 0.55em;
+	}
+	.connection-status {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35em;
+		color: #a8a8a8;
+		font-size: 0.72em;
+		white-space: nowrap;
+	}
+	.status-dot {
+		width: 0.55em;
+		height: 0.55em;
+		border-radius: 999px;
+		background: #eab308;
+		box-shadow: 0 0 7px currentColor;
+	}
+	.connection-status.online .status-dot {
+		background: #22c55e;
+	}
+	.connection-status.offline .status-dot {
+		background: #ef4444;
+	}
+	.safari-warning {
+		background: #3b2f0a;
+		border-bottom: 1px solid #8a6d16;
+		color: #fde68a;
+		font-size: 0.78em;
+		line-height: 1.35;
+		padding: 0.48em 0.8em;
+		text-align: center;
 	}
 	.tab-panel {
 		flex: 1;
