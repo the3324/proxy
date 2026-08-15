@@ -3,12 +3,15 @@ import { controller, getTransport } from "..";
 import {
 	AVAILABLE_TRANSPORTS,
 	type AvailableTransports,
+	type BrowserTheme,
 	demoSettingsDefaults,
 	demoSettingsStore,
 	normalizeHomeUrl,
 	normalizeMaxRequests,
 	normalizeAppName,
 	normalizeAccentColor,
+	normalizeTheme,
+	normalizeShortcuts,
 	normalizeTransport,
 	normalizeWispUrl,
 } from "../store";
@@ -23,6 +26,8 @@ const SettingsView: Component<
 		appNameInput: string;
 		accentColorInput: string;
 		compactModeInput: boolean;
+		themeInput: BrowserTheme;
+		shortcutsInput: string;
 		status: string;
 		error: string;
 	},
@@ -35,6 +40,9 @@ const SettingsView: Component<
 	this.appNameInput ??= demoSettingsStore.appName;
 	this.accentColorInput ??= demoSettingsStore.accentColor;
 	this.compactModeInput ??= demoSettingsStore.compactMode;
+	this.themeInput ??= demoSettingsStore.theme ?? demoSettingsDefaults.theme;
+	this.shortcutsInput ??=
+		demoSettingsStore.shortcuts ?? demoSettingsDefaults.shortcuts;
 	this.status ??= "";
 	this.error ??= "";
 
@@ -46,6 +54,9 @@ const SettingsView: Component<
 		this.appNameInput = demoSettingsStore.appName;
 		this.accentColorInput = demoSettingsStore.accentColor;
 		this.compactModeInput = demoSettingsStore.compactMode;
+		this.themeInput = demoSettingsStore.theme ?? demoSettingsDefaults.theme;
+		this.shortcutsInput =
+			demoSettingsStore.shortcuts ?? demoSettingsDefaults.shortcuts;
 	};
 
 	const applySettings = async () => {
@@ -59,6 +70,8 @@ const SettingsView: Component<
 			const nextMaxRequests = normalizeMaxRequests(this.maxRequestsInput);
 			const nextAppName = normalizeAppName(this.appNameInput);
 			const nextAccentColor = normalizeAccentColor(this.accentColorInput);
+			const nextTheme = normalizeTheme(this.themeInput);
+			const nextShortcuts = normalizeShortcuts(this.shortcutsInput);
 			const wispChanged = nextWispUrl !== demoSettingsStore.wispUrl;
 			const transportChanged = nextTransport !== demoSettingsStore.transport;
 
@@ -69,6 +82,8 @@ const SettingsView: Component<
 			demoSettingsStore.appName = nextAppName;
 			demoSettingsStore.accentColor = nextAccentColor;
 			demoSettingsStore.compactMode = this.compactModeInput;
+			demoSettingsStore.theme = nextTheme;
+			demoSettingsStore.shortcuts = nextShortcuts;
 			document.title = nextAppName;
 			document.documentElement.style.setProperty("--accent", nextAccentColor);
 
@@ -78,6 +93,8 @@ const SettingsView: Component<
 			this.maxRequestsInput = String(nextMaxRequests);
 			this.appNameInput = nextAppName;
 			this.accentColorInput = nextAccentColor;
+			this.themeInput = nextTheme;
+			this.shortcutsInput = nextShortcuts;
 
 			if (wispChanged || transportChanged) {
 				controller.setTransport(getTransport());
@@ -103,6 +120,8 @@ const SettingsView: Component<
 		this.appNameInput = demoSettingsDefaults.appName;
 		this.accentColorInput = demoSettingsDefaults.accentColor;
 		this.compactModeInput = demoSettingsDefaults.compactMode;
+		this.themeInput = demoSettingsDefaults.theme;
+		this.shortcutsInput = demoSettingsDefaults.shortcuts;
 		await applySettings();
 	};
 
@@ -155,6 +174,20 @@ const SettingsView: Component<
 				</div>
 			</label>
 
+			<label class="field">
+				<span class="label">Theme preset</span>
+				<select
+					value={use(this.themeInput)}
+					on:change={(e: Event) => {
+						this.themeInput = (e.target as HTMLSelectElement).value as BrowserTheme;
+					}}
+				>
+					<option value="midnight">Midnight</option>
+					<option value="graphite">Graphite</option>
+					<option value="ocean">Ocean</option>
+				</select>
+			</label>
+
 			<label class="toggle-field">
 				<input
 					type="checkbox"
@@ -167,6 +200,19 @@ const SettingsView: Component<
 			</label>
 
 			<div class="settings-section-title">Connection and browsing</div>
+
+			<label class="field">
+				<span class="label">Homepage shortcuts</span>
+				<textarea
+					rows="6"
+					value={use(this.shortcutsInput)}
+					spellcheck={false}
+					on:input={(e: InputEvent) => {
+						this.shortcutsInput = (e.target as HTMLTextAreaElement).value;
+					}}
+				></textarea>
+				<span class="hint">One per line in Name|https://example.com format. Maximum 8.</span>
+			</label>
 
 			<label class="field">
 				<span class="label">Wisp server</span>
@@ -350,6 +396,7 @@ SettingsView.style = css`
 	}
 
 	input,
+	textarea,
 	select {
 		width: 100%;
 		padding: 0.55em 0.65em;
@@ -364,6 +411,7 @@ SettingsView.style = css`
 	}
 
 	input:focus,
+	textarea:focus,
 	select:focus {
 		border-color: #4a4a4a;
 	}
@@ -384,6 +432,12 @@ SettingsView.style = css`
 		background-repeat: no-repeat;
 		padding-right: 28px;
 		cursor: pointer;
+	}
+
+	textarea {
+		resize: vertical;
+		min-height: 112px;
+		line-height: 1.45;
 	}
 
 	.hint {
@@ -456,6 +510,7 @@ SettingsView.style = css`
 			padding: 20px max(18px, env(safe-area-inset-left, 0));
 		}
 		input,
+		textarea,
 		select,
 		button {
 			font-size: 16px;

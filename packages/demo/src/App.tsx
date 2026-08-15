@@ -8,22 +8,25 @@ import { Omnibox } from "./pages/BrowserView";
 import { requestsState } from "./pages/RequestViewer";
 import { demoSettingsStore } from "./store";
 
-const ConnectionStatus: Component<{}, {}, { status: string }> = function (cx) {
+const ConnectionStatus: Component<{}, {}, { status: string; latency: number }> = function (cx) {
 	this.status ??= "checking";
+	this.latency ??= 0;
 
 	cx.mount = () => {
+		const startedAt = performance.now();
 		let settled = false;
 		const socket = new WebSocket(demoSettingsStore.wispUrl);
-		const finish = (status: string) => {
+		const finish = (status: string, latency = 0) => {
 			if (settled) return;
 			settled = true;
+			this.latency = latency;
 			this.status = status;
 			socket.close();
 		};
 		const timeout = window.setTimeout(() => finish("offline"), 6000);
 		socket.addEventListener("open", () => {
 			window.clearTimeout(timeout);
-			finish("online");
+			finish("online", Math.round(performance.now() - startedAt));
 		});
 		socket.addEventListener("error", () => {
 			window.clearTimeout(timeout);
@@ -40,7 +43,7 @@ const ConnectionStatus: Component<{}, {}, { status: string }> = function (cx) {
 			<span class="status-label">
 				{use(this.status).map((status) =>
 					status === "online"
-						? "Wisp connected"
+						? `Wisp ${this.latency} ms`
 						: status === "offline"
 							? "Wisp unavailable"
 							: "Checking Wisp"
@@ -71,8 +74,8 @@ const App: Component<
 		isSafari && localStorage.getItem("dismissed-safari-warning") !== "1";
 	return (
 		<div
-			class={use(demoSettingsStore.compactMode).map((compact) =>
-				compact ? "compact" : ""
+			class={use(demoSettingsStore.theme).map((theme) =>
+				`theme-${theme || "midnight"}`
 			)}
 		>
 			{use(this.showSafariWarning).map((visible) =>
@@ -96,7 +99,11 @@ const App: Component<
 					</div>
 				) : null
 			)}
-			<div class="top-bar">
+			<div
+				class={use(demoSettingsStore.compactMode).map((compact) =>
+					compact ? "top-bar compact" : "top-bar"
+				)}
+			>
 				<div class="tab-bar">
 					<button
 						class={use(this.activeTab).map(
@@ -210,7 +217,7 @@ App.style = css`
 		padding-left: env(safe-area-inset-left, 0);
 		padding-right: env(safe-area-inset-right, 0);
 		padding-bottom: env(safe-area-inset-bottom, 0);
-		background: black;
+		background: var(--app-background, #05070c);
 		box-sizing: border-box;
 	}
 	.material-symbols-outlined {
@@ -234,7 +241,7 @@ App.style = css`
 		gap: 0;
 		margin-bottom: 0;
 		border-bottom: 1px solid #4a4a4a;
-		background: #0f0f0f;
+		background: var(--toolbar-background, #0f0f0f);
 	}
 	.tab-bar {
 		display: flex;
@@ -325,12 +332,12 @@ App.style = css`
 		font: inherit;
 		cursor: pointer;
 	}
-	:scope.compact .tab-button {
+	.top-bar.compact .tab-button {
 		padding: 0.12em 0.45em;
 		min-height: 23px;
 		font-size: 0.76em;
 	}
-	:scope.compact .top-actions {
+	.top-bar.compact .top-actions {
 		min-height: 23px;
 	}
 	@media (max-width: 900px) {
@@ -368,13 +375,25 @@ App.style = css`
 			padding: 0.65em 0.9em;
 			font-size: 0.9em;
 		}
-		:scope.compact .tab-button {
+		.top-bar.compact .tab-button {
 			min-height: 38px;
 			padding: 0.45em 0.7em;
 		}
 		.warning-close {
 			min-height: 38px;
 		}
+	}
+	:scope.theme-midnight {
+		--app-background: #05070c;
+		--toolbar-background: #0f1118;
+	}
+	:scope.theme-graphite {
+		--app-background: #111111;
+		--toolbar-background: #1b1b1b;
+	}
+	:scope.theme-ocean {
+		--app-background: #03121c;
+		--toolbar-background: #072536;
 	}
 	.tab-panel {
 		flex: 1;

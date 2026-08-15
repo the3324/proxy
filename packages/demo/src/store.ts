@@ -1,6 +1,7 @@
 import { createStore } from "dreamland/core";
 
 export type AvailableTransports = "libcurl" | "epoxy";
+export type BrowserTheme = "midnight" | "graphite" | "ocean";
 
 export const AVAILABLE_TRANSPORTS: ReadonlyArray<{
 	value: AvailableTransports;
@@ -20,6 +21,13 @@ const DEFAULT_MAX_REQUESTS = 200;
 const DEFAULT_APP_NAME = "Scramjet Browser";
 const DEFAULT_ACCENT_COLOR = "#60a5fa";
 const DEFAULT_COMPACT_MODE = false;
+const DEFAULT_THEME: BrowserTheme = "midnight";
+const DEFAULT_SHORTCUTS = [
+	"now.gg|https://now.gg/",
+	"GeForce NOW|https://play.geforcenow.com/",
+	"YouTube|https://www.youtube.com/",
+	"Reddit|https://www.reddit.com/",
+].join("\n");
 
 export const demoSettingsStore = createStore(
 	{
@@ -30,6 +38,8 @@ export const demoSettingsStore = createStore(
 		appName: DEFAULT_APP_NAME,
 		accentColor: DEFAULT_ACCENT_COLOR,
 		compactMode: DEFAULT_COMPACT_MODE,
+		theme: DEFAULT_THEME as BrowserTheme,
+		shortcuts: DEFAULT_SHORTCUTS,
 	},
 	{
 		ident: "scramjet-demo-settings",
@@ -109,6 +119,43 @@ export function normalizeAccentColor(value: string) {
 	return trimmed.toLowerCase();
 }
 
+export function normalizeTheme(value: string): BrowserTheme {
+	if (value === "midnight" || value === "graphite" || value === "ocean") {
+		return value;
+	}
+	throw new TypeError("Unknown theme preset.");
+}
+
+export function parseShortcuts(value: string) {
+	const lines = value
+		.split("\n")
+		.map((line) => line.trim())
+		.filter(Boolean);
+	if (lines.length > 8) throw new RangeError("You can add up to 8 shortcuts.");
+	return lines.map((line, index) => {
+		const separator = line.indexOf("|");
+		if (separator < 1) {
+			throw new TypeError(`Shortcut ${index + 1} must use Name|URL format.`);
+		}
+		const name = line.slice(0, separator).trim();
+		const rawUrl = line.slice(separator + 1).trim();
+		if (!name || name.length > 30) {
+			throw new TypeError(`Shortcut ${index + 1} needs a name up to 30 characters.`);
+		}
+		const url = new URL(rawUrl);
+		if (url.protocol !== "https:" && url.protocol !== "http:") {
+			throw new TypeError(`Shortcut ${index + 1} must use an HTTP or HTTPS URL.`);
+		}
+		return { name, url: url.toString() };
+	});
+}
+
+export function normalizeShortcuts(value: string) {
+	return parseShortcuts(value)
+		.map(({ name, url }) => `${name}|${url}`)
+		.join("\n");
+}
+
 export const demoSettingsDefaults = {
 	wispUrl: normalizeWispUrl(DEFAULT_WISP_URL),
 	transport: DEFAULT_TRANSPORT,
@@ -117,4 +164,6 @@ export const demoSettingsDefaults = {
 	appName: DEFAULT_APP_NAME,
 	accentColor: DEFAULT_ACCENT_COLOR,
 	compactMode: DEFAULT_COMPACT_MODE,
+	theme: DEFAULT_THEME,
+	shortcuts: DEFAULT_SHORTCUTS,
 };

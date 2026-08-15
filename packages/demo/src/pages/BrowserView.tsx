@@ -7,7 +7,11 @@ const { Plugin: ScramjetPlugin, ScramjetHeaders } = window.$scramjet;
 import type { Plugin } from "@mercuryworkshop/scramjet";
 import type { Frame } from "@mercuryworkshop/scramjet-controller";
 import { cachePlugin, controller } from "..";
-import { demoSettingsStore } from "../store";
+import {
+	demoSettingsDefaults,
+	demoSettingsStore,
+	parseShortcuts,
+} from "../store";
 import homepage from "./homepage.html?raw";
 
 export const browserState = createState({
@@ -288,6 +292,15 @@ const BrowserView: Component<
 			"{{APP_NAME}}",
 			escapeHtml(demoSettingsStore.appName)
 		);
+		const shortcutMarkup = parseShortcuts(
+			demoSettingsStore.shortcuts || demoSettingsDefaults.shortcuts
+		)
+			.map(
+				({ name, url }) =>
+					`<a class="quick-link" href="${escapeHtml(url)}"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(new URL(url).hostname)}</span></a>`
+			)
+			.join("");
+		realHomepage = realHomepage.replaceAll("{{SHORTCUTS}}", shortcutMarkup);
 		this.frameel.src = `data:text/html;base64,${btoa(realHomepage)}`;
 		initPlugin(browserState.frame);
 
