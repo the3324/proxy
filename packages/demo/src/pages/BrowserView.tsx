@@ -29,6 +29,8 @@ function escapeHtml(value: string) {
 }
 
 export const Omnibox: Component = function (cx) {
+	const supportsFullscreen =
+		typeof document.documentElement.requestFullscreen === "function";
 	const navigate = () => {
 		const value = browserState.url.trim();
 		const isHttpUrl = /^https?:\/\//i.test(value);
@@ -106,7 +108,7 @@ export const Omnibox: Component = function (cx) {
 					>
 						<span class="material-symbols-outlined">content_copy</span>
 					</button>
-					<button
+					{supportsFullscreen ? <button
 						type="button"
 						class="nav-btn"
 						title="Toggle fullscreen"
@@ -118,7 +120,7 @@ export const Omnibox: Component = function (cx) {
 						}
 					>
 						<span class="material-symbols-outlined">fullscreen</span>
-					</button>
+					</button> : null}
 				</div>
 				<input
 					id="search"
@@ -199,6 +201,33 @@ Omnibox.style = css`
 	}
 	.url-input::placeholder {
 		color: #6f7680;
+	}
+	@media (max-width: 1180px) {
+		:scope {
+			flex: 1 0 100%;
+			order: 2;
+			padding: 0.35em 0.45em;
+		}
+		.url-input {
+			font-size: 16px;
+		}
+	}
+	@media (pointer: coarse) {
+		.nav-btn {
+			width: 44px;
+			height: 44px;
+		}
+		.browser-omnibox-shell {
+			gap: 0.2em;
+		}
+		.omnibox-nav {
+			overflow-x: auto;
+			max-width: 58vw;
+		}
+		.url-input {
+			min-height: 44px;
+			font-size: 16px;
+		}
 	}
 `;
 

@@ -450,5 +450,25 @@ SettingsView.style = css`
 	.message.status {
 		color: #b8c2cc;
 	}
+
+	@media (pointer: coarse) {
+		:scope {
+			padding: 20px max(18px, env(safe-area-inset-left, 0));
+		}
+		input,
+		select,
+		button {
+			font-size: 16px;
+			min-height: 44px;
+		}
+		.toggle-field {
+			min-height: 44px;
+		}
+		.toggle-field input[type="checkbox"] {
+			width: 24px;
+			height: 24px;
+			min-height: 24px;
+		}
+	}
 `;
 export default SettingsView;

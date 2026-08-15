@@ -55,6 +55,7 @@ const App: Component<
 	{},
 	{
 		activeTab: "browser" | "requests" | "playground" | "settings";
+		showSafariWarning: boolean;
 	}
 > = function (cx) {
 	this.activeTab ??= "browser";
@@ -66,18 +67,35 @@ const App: Component<
 	const isSafari =
 		/^((?!chrome|android).)*safari/i.test(navigator.userAgent) &&
 		navigator.vendor.includes("Apple");
+	this.showSafariWarning ??=
+		isSafari && localStorage.getItem("dismissed-safari-warning") !== "1";
 	return (
 		<div
 			class={use(demoSettingsStore.compactMode).map((compact) =>
 				compact ? "compact" : ""
 			)}
 		>
-			{isSafari ? (
-				<div class="safari-warning">
-					Safari may not display proxied images correctly. For the best
-					experience, use Chrome, Edge, or another Chromium browser.
-				</div>
-			) : null}
+			{use(this.showSafariWarning).map((visible) =>
+				visible ? (
+					<div class="safari-warning">
+					<span>
+						Safari may not display proxied images correctly. On iPad, switching
+						to Epoxy in Settings may improve compatibility.
+					</span>
+					<button
+						type="button"
+						class="warning-close"
+						aria-label="Dismiss Safari notice"
+						on:click={() => {
+							this.showSafariWarning = false;
+							localStorage.setItem("dismissed-safari-warning", "1");
+						}}
+					>
+						Dismiss
+					</button>
+					</div>
+				) : null
+			)}
 			<div class="top-bar">
 				<div class="tab-bar">
 					<button
@@ -180,6 +198,7 @@ App.style = css`
 	:scope {
 		width: 100vw;
 		height: 100vh;
+		height: 100dvh;
 		display: flex;
 		flex-direction: column;
 		margin: 0;
@@ -188,7 +207,9 @@ App.style = css`
 		top: 0;
 		left: 0;
 
-		padding: 0;
+		padding-left: env(safe-area-inset-left, 0);
+		padding-right: env(safe-area-inset-right, 0);
+		padding-bottom: env(safe-area-inset-bottom, 0);
 		background: black;
 		box-sizing: border-box;
 	}
@@ -283,6 +304,10 @@ App.style = css`
 		background: #ef4444;
 	}
 	.safari-warning {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.75em;
 		background: #3b2f0a;
 		border-bottom: 1px solid #8a6d16;
 		color: #fde68a;
@@ -290,6 +315,15 @@ App.style = css`
 		line-height: 1.35;
 		padding: 0.48em 0.8em;
 		text-align: center;
+	}
+	.warning-close {
+		border: 1px solid #a18427;
+		border-radius: 6px;
+		background: transparent;
+		color: inherit;
+		padding: 0.35em 0.65em;
+		font: inherit;
+		cursor: pointer;
 	}
 	:scope.compact .tab-button {
 		padding: 0.12em 0.45em;
@@ -308,6 +342,12 @@ App.style = css`
 			gap: 0.25em;
 		}
 	}
+	@media (max-width: 1180px) {
+		.tab-bar {
+			flex-wrap: wrap;
+			overflow-x: visible;
+		}
+	}
 	@media (max-width: 640px) {
 		.top-bar {
 			flex-wrap: wrap;
@@ -320,6 +360,20 @@ App.style = css`
 			width: 100%;
 			justify-content: flex-end;
 			order: 0;
+		}
+	}
+	@media (pointer: coarse) {
+		.tab-button {
+			min-height: 44px;
+			padding: 0.65em 0.9em;
+			font-size: 0.9em;
+		}
+		:scope.compact .tab-button {
+			min-height: 38px;
+			padding: 0.45em 0.7em;
+		}
+		.warning-close {
+			min-height: 38px;
 		}
 	}
 	.tab-panel {
