@@ -33,6 +33,13 @@ function escapeHtml(value: string) {
 	return value.replace(/[&<>"']/g, (character) => entities[character]!);
 }
 
+function encodeUtf8Base64(value: string) {
+	const bytes = new TextEncoder().encode(value);
+	let binary = "";
+	for (const byte of bytes) binary += String.fromCharCode(byte);
+	return btoa(binary);
+}
+
 export const Omnibox: Component = function (cx) {
 	const supportsFullscreen =
 		typeof document.documentElement.requestFullscreen === "function";
@@ -311,7 +318,9 @@ const BrowserView: Component<
 			)
 			.join("");
 		realHomepage = realHomepage.replaceAll("{{SHORTCUTS}}", shortcutMarkup);
-		this.frameel.src = `data:text/html;base64,${btoa(realHomepage)}`;
+		// btoa only accepts Latin-1; encode first so custom names can safely use emoji
+		// and non-English characters without breaking browser startup.
+		this.frameel.src = `data:text/html;base64,${encodeUtf8Base64(realHomepage)}`;
 		initPlugin(browserState.frame);
 
 		let goto = new URL(location.href).searchParams.get("goto");

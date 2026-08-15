@@ -61,7 +61,9 @@ const getBodyPreview = (body: unknown): { preview: string; size?: number } => {
 	}
 	if (body instanceof ArrayBuffer) {
 		const view = new Uint8Array(body);
-		const decoded = new TextDecoder().decode(view);
+		const decoded = new TextDecoder().decode(
+			view.subarray(0, LARGE_BODY_PREVIEW_CHARS)
+		);
 		return { preview: decoded, size: view.byteLength };
 	}
 	if (body instanceof Blob) {
@@ -581,6 +583,12 @@ export const requestsState = createState({
 	requests: [] as RequestEntry[],
 });
 
+const revokeEntryMedia = (entry: RequestEntry) => {
+	for (const url of [entry.responseBodyMediaUrlPre, entry.responseBodyMediaUrl]) {
+		if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
+	}
+};
+
 const RequestViewer: Component<
 	{
 		active?: boolean;
@@ -706,6 +714,12 @@ const RequestViewer: Component<
 	};
 
 	const clear = () => {
+		if (this.pendingRequestsFlush !== undefined) {
+			cancelAnimationFrame(this.pendingRequestsFlush);
+			this.pendingRequestsFlush = undefined;
+			this.pendingRequestsUpdater = null;
+		}
+		requestsState.requests.forEach(revokeEntryMedia);
 		requestsState.requests = [];
 		this.selectedId = null;
 	};
@@ -845,6 +859,12 @@ const RequestViewer: Component<
 
 			updateRequests((prev) => {
 				const next = [...prev, entry].slice(-demoSettingsStore.maxRequests);
+				if (next.length < prev.length + 1) {
+					const retainedIds = new Set(next.map((item) => item.id));
+					prev.forEach((item) => {
+						if (!retainedIds.has(item.id)) revokeEntryMedia(item);
+					});
+				}
 				if (!this.selectedId) {
 					this.selectedRequest = entry;
 				}

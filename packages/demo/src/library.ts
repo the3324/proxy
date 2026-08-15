@@ -31,8 +31,11 @@ export const libraryState = createState({
 	history: readEntries(HISTORY_KEY),
 });
 
-function save() {
+function saveBookmarks() {
 	localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(libraryState.bookmarks));
+}
+
+function saveHistory() {
 	localStorage.setItem(HISTORY_KEY, JSON.stringify(libraryState.history));
 }
 
@@ -43,7 +46,7 @@ export function addBookmark(url: string) {
 		{ url, label: labelForUrl(url), visitedAt: Date.now() },
 		...libraryState.bookmarks,
 	].slice(0, 100);
-	save();
+	saveBookmarks();
 	return true;
 }
 
@@ -51,30 +54,32 @@ export function removeBookmark(url: string) {
 	libraryState.bookmarks = libraryState.bookmarks.filter(
 		(entry) => entry.url !== url
 	);
-	save();
+	saveBookmarks();
 }
 
 export function addHistory(url: string) {
 	if (!/^https?:\/\//i.test(url)) return;
+	const latest = libraryState.history[0];
+	if (latest?.url === url && Date.now() - latest.visitedAt < 1500) return;
 	const entry = { url, label: labelForUrl(url), visitedAt: Date.now() };
 	libraryState.history = [
 		entry,
 		...libraryState.history.filter((item) => item.url !== url),
 	].slice(0, 100);
-	save();
+	saveHistory();
 }
 
 export function removeHistory(url: string) {
 	libraryState.history = libraryState.history.filter((entry) => entry.url !== url);
-	save();
+	saveHistory();
 }
 
 export function clearBookmarks() {
 	libraryState.bookmarks = [];
-	save();
+	saveBookmarks();
 }
 
 export function clearHistory() {
 	libraryState.history = [];
-	save();
+	saveHistory();
 }

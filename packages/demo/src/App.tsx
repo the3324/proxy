@@ -420,6 +420,14 @@ App.style = css`
 			min-height: 38px;
 		}
 	}
+	@media (prefers-reduced-motion: reduce) {
+		*, *::before, *::after {
+			scroll-behavior: auto !important;
+			animation-duration: 0.01ms !important;
+			animation-iteration-count: 1 !important;
+			transition-duration: 0.01ms !important;
+		}
+	}
 	:scope.theme-midnight {
 		--app-background: #05070c;
 		--toolbar-background: #0f1118;

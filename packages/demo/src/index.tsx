@@ -30,22 +30,22 @@ export function getTransport(): LibcurlClient | EpoxyClient {
 async function waitForControllerOrReady(timeoutMs = 10000): Promise<void> {
 	if (navigator.serviceWorker.controller) return;
 
-	const ready = navigator.serviceWorker.ready.then(() => {});
-	const controllerChanged = new Promise<void>((resolve) => {
-		const onChange = () => {
+	await new Promise<void>((resolve) => {
+		let settled = false;
+		const finish = () => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timeout);
 			navigator.serviceWorker.removeEventListener("controllerchange", onChange);
 			resolve();
 		};
-		navigator.serviceWorker.addEventListener("controllerchange", onChange, {
-			once: true,
-		} as any);
+		const onChange = () => {
+			finish();
+		};
+		const timeout = window.setTimeout(finish, timeoutMs);
+		navigator.serviceWorker.addEventListener("controllerchange", onChange);
+		navigator.serviceWorker.ready.then(finish, finish);
 	});
-	const timeout = new Promise<void>((resolve) =>
-		setTimeout(resolve, timeoutMs)
-	);
-
-	// Wait for whichever happens first; on timeout we continue to avoid blocking the UI.
-	await Promise.race([ready, controllerChanged, timeout]);
 }
 
 function showFatalError(title: string, error: unknown) {
