@@ -12,13 +12,15 @@ import { browserState } from "./BrowserView";
 const LibraryList: Component<{
 	entries: LibraryEntry[];
 	empty: string;
+	query: string;
 	onRemove: (url: string) => void;
 }> = function () {
 	return (
 		<div class="library-list">
-			{use(this.entries).map((entries) =>
-				entries.length ? (
-					entries.map((entry) => (
+			{use(this.entries, this.query).map(([entries, query]) => {
+				const filtered = entries.filter((entry) => `${entry.label} ${entry.url}`.toLowerCase().includes(query.trim().toLowerCase()));
+				return filtered.length ? (
+					filtered.map((entry) => (
 						<div class="library-row">
 							<button
 								class="library-open"
@@ -43,13 +45,14 @@ const LibraryList: Component<{
 					))
 				) : (
 					<div class="empty-state">{use(this.empty)}</div>
-				)
-			)}
+				);
+			})}
 		</div>
 	);
 };
 
-const LibraryView: Component = function () {
+const LibraryView: Component<{}, { search: string }, {}> = function () {
+	this.search ??= "";
 	return (
 		<div class="library-page">
 			<header>
@@ -58,6 +61,7 @@ const LibraryView: Component = function () {
 					<p>Bookmarks and recent pages are stored only on this device.</p>
 				</div>
 			</header>
+			<input class="library-search" type="search" placeholder="Search bookmarks and history" value={use(this.search)} on:input={(event: InputEvent) => { this.search = (event.target as HTMLInputElement).value; }} />
 			<section>
 				<div class="section-heading">
 					<h3>Bookmarks</h3>
@@ -67,6 +71,7 @@ const LibraryView: Component = function () {
 					entries={use(libraryState.bookmarks)}
 					empty="Bookmark a page with the star button in the address bar."
 					onRemove={removeBookmark}
+					query={use(this.search)}
 				/>
 			</section>
 			<section>
@@ -78,6 +83,7 @@ const LibraryView: Component = function () {
 					entries={use(libraryState.history)}
 					empty="Pages you visit will appear here."
 					onRemove={removeHistory}
+					query={use(this.search)}
 				/>
 			</section>
 		</div>
@@ -90,6 +96,7 @@ LibraryView.style = css`
 	h2, h3, p { margin-top: 0; }
 	header p { color: #999; margin-bottom: 0; }
 	section { max-width: 900px; margin-bottom: 28px; }
+	.library-search { width: min(900px, 100%); box-sizing: border-box; min-height: 42px; margin: 0 0 22px; padding: 9px 12px; border: 1px solid #343434; background: #151515; color: #eee; font: inherit; }
 	.section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 	.section-heading h3 { margin-bottom: 10px; }
 	button { border: 1px solid #343434; background: #191919; color: #ddd; cursor: pointer; min-height: 34px; padding: 7px 10px; }

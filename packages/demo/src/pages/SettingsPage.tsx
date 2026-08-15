@@ -29,6 +29,13 @@ const SettingsView: Component<
 		compactModeInput: boolean;
 		themeInput: BrowserTheme;
 		shortcutsInput: string;
+		streamingModeInput: boolean;
+		developerModeInput: boolean;
+		restoreSessionInput: boolean;
+		autoUpdateInput: boolean;
+		textScaleInput: string;
+		wispFallbacksInput: string;
+		compatibilityModeInput: "balanced" | "safari" | "low-memory";
 		status: string;
 		error: string;
 	},
@@ -44,6 +51,13 @@ const SettingsView: Component<
 	this.themeInput ??= demoSettingsStore.theme ?? demoSettingsDefaults.theme;
 	this.shortcutsInput ??=
 		demoSettingsStore.shortcuts ?? demoSettingsDefaults.shortcuts;
+	this.streamingModeInput ??= demoSettingsStore.streamingMode;
+	this.developerModeInput ??= demoSettingsStore.developerMode;
+	this.restoreSessionInput ??= demoSettingsStore.restoreSession;
+	this.autoUpdateInput ??= demoSettingsStore.autoUpdate;
+	this.textScaleInput ??= String(demoSettingsStore.textScale);
+	this.wispFallbacksInput ??= demoSettingsStore.wispFallbacks;
+	this.compatibilityModeInput ??= demoSettingsStore.compatibilityMode;
 	this.status ??= "";
 	this.error ??= "";
 
@@ -58,6 +72,13 @@ const SettingsView: Component<
 		this.themeInput = demoSettingsStore.theme ?? demoSettingsDefaults.theme;
 		this.shortcutsInput =
 			demoSettingsStore.shortcuts ?? demoSettingsDefaults.shortcuts;
+		this.streamingModeInput = demoSettingsStore.streamingMode;
+		this.developerModeInput = demoSettingsStore.developerMode;
+		this.restoreSessionInput = demoSettingsStore.restoreSession;
+		this.autoUpdateInput = demoSettingsStore.autoUpdate;
+		this.textScaleInput = String(demoSettingsStore.textScale);
+		this.wispFallbacksInput = demoSettingsStore.wispFallbacks;
+		this.compatibilityModeInput = demoSettingsStore.compatibilityMode;
 	};
 
 	const applySettings = async () => {
@@ -85,8 +106,21 @@ const SettingsView: Component<
 			demoSettingsStore.compactMode = this.compactModeInput;
 			demoSettingsStore.theme = nextTheme;
 			demoSettingsStore.shortcuts = nextShortcuts;
+			demoSettingsStore.streamingMode = this.streamingModeInput;
+			demoSettingsStore.developerMode = this.developerModeInput;
+			demoSettingsStore.restoreSession = this.restoreSessionInput;
+			demoSettingsStore.autoUpdate = this.autoUpdateInput;
+			demoSettingsStore.textScale = Math.min(150, Math.max(80, Number(this.textScaleInput) || 100));
+			demoSettingsStore.wispFallbacks = this.wispFallbacksInput.trim();
+			demoSettingsStore.compatibilityMode = this.compatibilityModeInput;
+			if (this.compatibilityModeInput === "safari") demoSettingsStore.transport = "epoxy";
+			if (this.compatibilityModeInput === "low-memory") {
+				demoSettingsStore.streamingMode = true;
+				demoSettingsStore.maxRequests = Math.min(demoSettingsStore.maxRequests, 50);
+			}
 			document.title = nextAppName;
 			document.documentElement.style.setProperty("--accent", nextAccentColor);
+			document.documentElement.style.fontSize = `${demoSettingsStore.textScale}%`;
 
 			this.wispUrlInput = nextWispUrl;
 			this.transportInput = nextTransport;
@@ -97,11 +131,15 @@ const SettingsView: Component<
 			this.themeInput = nextTheme;
 			this.shortcutsInput = nextShortcuts;
 
-			if (wispChanged || transportChanged) {
+			const presetChangedTransport = demoSettingsStore.transport !== nextTransport;
+			this.transportInput = demoSettingsStore.transport;
+			this.maxRequestsInput = String(demoSettingsStore.maxRequests);
+			this.streamingModeInput = demoSettingsStore.streamingMode;
+			if (wispChanged || transportChanged || presetChangedTransport) {
 				controller.setTransport(getTransport());
 			}
 			this.status =
-				wispChanged || transportChanged
+				wispChanged || transportChanged || presetChangedTransport
 					? "Settings saved. Transport updated for new requests."
 					: "Settings saved.";
 		} catch (error) {
@@ -123,6 +161,13 @@ const SettingsView: Component<
 		this.compactModeInput = demoSettingsDefaults.compactMode;
 		this.themeInput = demoSettingsDefaults.theme;
 		this.shortcutsInput = demoSettingsDefaults.shortcuts;
+		this.streamingModeInput = false;
+		this.developerModeInput = true;
+		this.restoreSessionInput = true;
+		this.autoUpdateInput = true;
+		this.textScaleInput = "100";
+		this.wispFallbacksInput = "";
+		this.compatibilityModeInput = "balanced";
 		await applySettings();
 	};
 
@@ -152,6 +197,13 @@ const SettingsView: Component<
 				compactMode: demoSettingsStore.compactMode,
 				theme: demoSettingsStore.theme,
 				shortcuts: demoSettingsStore.shortcuts,
+				streamingMode: demoSettingsStore.streamingMode,
+				developerMode: demoSettingsStore.developerMode,
+				restoreSession: demoSettingsStore.restoreSession,
+				autoUpdate: demoSettingsStore.autoUpdate,
+				textScale: demoSettingsStore.textScale,
+				wispFallbacks: demoSettingsStore.wispFallbacks,
+				compatibilityMode: demoSettingsStore.compatibilityMode,
 			},
 			bookmarks: libraryState.bookmarks,
 			history: libraryState.history,
@@ -188,6 +240,13 @@ const SettingsView: Component<
 			demoSettingsStore.compactMode = Boolean(settings.compactMode);
 			demoSettingsStore.theme = normalizeTheme(settings.theme);
 			demoSettingsStore.shortcuts = normalizeShortcuts(settings.shortcuts);
+			demoSettingsStore.streamingMode = Boolean(settings.streamingMode);
+			demoSettingsStore.developerMode = settings.developerMode !== false;
+			demoSettingsStore.restoreSession = settings.restoreSession !== false;
+			demoSettingsStore.autoUpdate = settings.autoUpdate !== false;
+			demoSettingsStore.textScale = Math.min(150, Math.max(80, Number(settings.textScale) || 100));
+			demoSettingsStore.wispFallbacks = typeof settings.wispFallbacks === "string" ? settings.wispFallbacks : "";
+			demoSettingsStore.compatibilityMode = settings.compatibilityMode === "safari" || settings.compatibilityMode === "low-memory" ? settings.compatibilityMode : "balanced";
 			if (Array.isArray(backup.bookmarks)) {
 				localStorage.setItem("scramjet-bookmarks", JSON.stringify(backup.bookmarks.slice(0, 100)));
 			}
@@ -270,6 +329,12 @@ const SettingsView: Component<
 			</label>
 
 			<div class="settings-section-title">Connection and browsing</div>
+			<label class="field"><span class="label">Compatibility preset</span><select value={use(this.compatibilityModeInput)} on:change={(e: Event) => { this.compatibilityModeInput = (e.target as HTMLSelectElement).value as typeof this.compatibilityModeInput; }}><option value="balanced">Balanced</option><option value="safari">Safari / iPad compatibility</option><option value="low-memory">Low memory / streaming</option></select><span class="hint">Presets apply recommended transport and logging choices when settings are saved.</span></label>
+			<label class="toggle-field"><input type="checkbox" checked={use(this.streamingModeInput)} on:change={(e: Event) => { this.streamingModeInput = (e.target as HTMLInputElement).checked; }} /><span>Streaming mode (lower logging and visual overhead)</span></label>
+			<label class="toggle-field"><input type="checkbox" checked={use(this.restoreSessionInput)} on:change={(e: Event) => { this.restoreSessionInput = (e.target as HTMLInputElement).checked; }} /><span>Restore browsing tabs after restarting</span></label>
+			<label class="toggle-field"><input type="checkbox" checked={use(this.autoUpdateInput)} on:change={(e: Event) => { this.autoUpdateInput = (e.target as HTMLInputElement).checked; }} /><span>Automatically install deployed updates</span></label>
+			<label class="toggle-field"><input type="checkbox" checked={use(this.developerModeInput)} on:change={(e: Event) => { this.developerModeInput = (e.target as HTMLInputElement).checked; }} /><span>Developer tools (Requests, Playground and flags)</span></label>
+			<label class="field"><span class="label">Text size</span><input type="range" min="80" max="150" step="5" value={use(this.textScaleInput)} on:input={(e: InputEvent) => { this.textScaleInput = (e.target as HTMLInputElement).value; }} /><span class="hint">{use(this.textScaleInput)}%</span></label>
 
 			<label class="field">
 				<span class="label">Homepage shortcuts</span>
@@ -314,6 +379,7 @@ const SettingsView: Component<
 					Transport client used to dispatch outbound requests over Wisp.
 				</span>
 			</label>
+			<label class="field"><span class="label">Fallback Wisp servers</span><textarea rows="3" value={use(this.wispFallbacksInput)} spellcheck={false} on:input={(e: InputEvent) => { this.wispFallbacksInput = (e.target as HTMLTextAreaElement).value; }}></textarea><span class="hint">One trusted wss:// endpoint per line. Diagnostics can test these if the main server fails.</span></label>
 
 			<label class="field">
 				<span class="label">Home page URL</span>

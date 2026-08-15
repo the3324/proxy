@@ -1020,7 +1020,7 @@ const RequestViewer: Component<
 	};
 	const activeSignal = use(this.active ?? false, browserState.frame).map(
 		([active, frame]) => {
-			if (active) initPlugin(frame);
+			if (active && !demoSettingsStore.streamingMode) initPlugin(frame);
 			return active;
 		}
 	);
@@ -1028,6 +1028,7 @@ const RequestViewer: Component<
 	return (
 		<div class="requests-view">
 			{activeSignal.map(() => null)}
+			{use(demoSettingsStore.streamingMode).map((enabled) => enabled ? <div class="streaming-notice">Request capture is paused while Streaming mode is enabled.</div> : null)}
 			<div class="requests-header">
 				<span>
 					Requests, oldest to newest (latest{" "}
@@ -1283,6 +1284,7 @@ const RequestViewer: Component<
 };
 
 RequestViewer.style = css`
+	.streaming-notice { padding: 9px 12px; border-bottom: 1px solid #665315; background: #332a0d; color: #fde68a; font-size: 0.82rem; }
 	:scope {
 		display: flex;
 		flex: 1;

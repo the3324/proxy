@@ -69,6 +69,7 @@ const App: Component<
 		"--accent",
 		demoSettingsStore.accentColor
 	);
+	document.documentElement.style.fontSize = `${demoSettingsStore.textScale}%`;
 	const isSafari =
 		/^((?!chrome|android).)*safari/i.test(navigator.userAgent) &&
 		navigator.vendor.includes("Apple");
@@ -137,7 +138,7 @@ const App: Component<
 					>
 						Browser
 					</button>
-					<button
+					{use(demoSettingsStore.developerMode).map((enabled) => enabled ? <button
 						class={use(this.activeTab).map(
 							(tab) => `tab-button ${tab === "requests" ? "active" : ""}`
 						)}
@@ -149,8 +150,8 @@ const App: Component<
 						{use(requestsState.requests).map((requests) =>
 							requests.length ? `(${requests.length})` : ""
 						)}
-					</button>
-					<button
+					</button> : null)}
+					{use(demoSettingsStore.developerMode).map((enabled) => enabled ? <button
 						class={use(this.activeTab).map(
 							(tab) => `tab-button ${tab === "playground" ? "active" : ""}`
 						)}
@@ -159,7 +160,7 @@ const App: Component<
 						}}
 					>
 						Playground
-					</button>
+					</button> : null)}
 					<button
 						class={use(this.activeTab).map(
 							(tab) => `tab-button ${tab === "settings" ? "active" : ""}`
@@ -176,7 +177,7 @@ const App: Component<
 				</div>
 				<div class="top-actions">
 					<ConnectionStatus />
-					<FlagEditor inline={true} />
+					{use(demoSettingsStore.developerMode).map((enabled) => enabled ? <FlagEditor inline={true} /> : null)}
 				</div>
 			</div>
 			<div

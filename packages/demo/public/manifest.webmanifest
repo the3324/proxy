@@ -5,6 +5,9 @@
 	"start_url": "./",
 	"scope": "./",
 	"display": "standalone",
+	"display_override": ["window-controls-overlay", "standalone"],
+	"orientation": "any",
+	"categories": ["utilities", "productivity"],
 	"background_color": "#0b0d12",
 	"theme_color": "#0b0d12",
 	"icons": [

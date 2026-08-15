@@ -31,6 +31,14 @@ through the configured Wisp endpoint.
 Users can change the endpoint later in Scramjet's **Settings** screen. Settings
 are stored locally in that browser.
 
+## Updates
+
+The installed web app checks for a newly deployed service worker every 15
+minutes and activates it automatically when **Automatically install deployed
+updates** is enabled. Dependabot opens weekly dependency update pull requests;
+these remain reviewable so upstream changes cannot silently overwrite the
+custom interface. The deployment workflow also performs a weekly clean build.
+
 ## Local development
 
 The full build requires recent Node.js, pnpm, Rust nightly, `wasm-bindgen`,

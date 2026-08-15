@@ -33,6 +33,10 @@ const DiagnosticsView: Component<{}, {}, { status: string; latency: number }> = 
 	const failedRequests = use(requestsState.requests).map(
 		(requests) => requests.filter((request) => (request.status ?? 0) >= 400).length
 	);
+	const transferred = use(requestsState.requests).map((requests) => {
+		const bytes = requests.reduce((sum, request) => sum + (request.responseBodySize ?? request.responseBodySizePre ?? 0), 0);
+		return bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
+	});
 
 	return (
 		<div class="diagnostics-page">
@@ -47,6 +51,7 @@ const DiagnosticsView: Component<{}, {}, { status: string; latency: number }> = 
 				<div class="card"><span>Service worker</span><strong>{"serviceWorker" in navigator ? "Supported" : "Unavailable"}</strong></div>
 				<div class="card"><span>Captured requests</span><strong>{use(requestsState.requests).map((requests) => requests.length)}</strong></div>
 				<div class="card"><span>HTTP errors</span><strong>{failedRequests}</strong></div>
+				<div class="card"><span>Captured data</span><strong>{transferred}</strong></div>
 			</div>
 			<div class="connection-test">
 				<div>

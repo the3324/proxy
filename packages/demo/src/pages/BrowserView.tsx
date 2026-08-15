@@ -14,6 +14,7 @@ import {
 } from "../store";
 import homepage from "./homepage.html?raw";
 import { addBookmark, addHistory } from "../library";
+import { activeTab, addTab, closeTab, reopenClosed, selectTab, tabsState, updateActiveTab } from "../tabs";
 
 export const browserState = createState({
 	url: demoSettingsStore.homeUrl,
@@ -53,6 +54,7 @@ export const Omnibox: Component = function (cx) {
 				? `https://${value}`
 				: `https://www.google.com/search?q=${encodeURIComponent(value)}`;
 		browserState.frame?.go(browserState.url);
+		updateActiveTab(browserState.url);
 	};
 
 	cx.mount = () => {
@@ -119,6 +121,18 @@ export const Omnibox: Component = function (cx) {
 						on:click={() => window.open(browserState.url, "_blank", "noopener,noreferrer")}
 					>
 						<span class="material-symbols-outlined">open_in_new</span>
+					</button>
+					<button
+						type="button"
+						class="nav-btn"
+						title="Find in page"
+						aria-label="Find in page"
+						on:click={() => {
+							const query = window.prompt("Find in this page");
+							if (query) (browserState.frame?.element.contentWindow as any)?.find?.(query);
+						}}
+					>
+						<span class="material-symbols-outlined">search</span>
 					</button>
 					<button
 						type="button"
@@ -261,6 +275,7 @@ const BrowserView: Component<
 		frameel: HTMLIFrameElement;
 	}
 > = function (cx) {
+	let touchStartX = 0;
 	cx.mount = async () => {
 		await controller.wait();
 		browserState.frame = controller.createFrame(this.frameel);
@@ -327,6 +342,9 @@ const BrowserView: Component<
 		if (goto) {
 			browserState.frame?.go(goto);
 			history.replaceState(null, "", location.href.split("?")[0]);
+		} else if (activeTab()?.url && activeTab().url !== demoSettingsStore.homeUrl) {
+			browserState.url = activeTab().url;
+			browserState.frame?.go(activeTab().url);
 		}
 	};
 	const initPlugin = (frame: Frame) => {
@@ -335,9 +353,11 @@ const BrowserView: Component<
 			if (!context.isTopLevel) return;
 			browserState.url = context.client.url.href;
 			addHistory(context.client.url.href);
+			updateActiveTab(context.client.url.href);
 			plugin.tap(context.client.hooks.lifecycle.navigate, (context, props) => {
 				browserState.url = props.url;
 				addHistory(props.url);
+				updateActiveTab(props.url);
 			});
 		});
 	};
@@ -347,7 +367,34 @@ const BrowserView: Component<
 			class={use(this.active).map(
 				(active) => `tab-panel browser-view ${active ? "active" : ""}`
 			)}
+			on:touchstart={(event: TouchEvent) => { touchStartX = event.changedTouches[0]?.screenX ?? 0; }}
+			on:touchend={(event: TouchEvent) => {
+				const distance = (event.changedTouches[0]?.screenX ?? touchStartX) - touchStartX;
+				if (Math.abs(distance) < 90) return;
+				if (distance > 0 && touchStartX < 32) browserState.frame?.back();
+				if (distance < 0 && touchStartX > window.innerWidth - 32) browserState.frame?.forward();
+			}}
 		>
+			<div class="browser-tabs" role="tablist" aria-label="Browser tabs">
+				{use(tabsState.tabs, tabsState.activeId).map(([tabs, activeId]) => tabs.map((tab) => (
+					<div class={`browser-tab ${tab.id === activeId ? "active" : ""}`}>
+						<button type="button" role="tab" title={tab.url} on:click={() => {
+							const selected = selectTab(tab.id);
+							if (selected) { browserState.url = selected.url; browserState.frame?.go(selected.url); }
+						}}>{tab.title}</button>
+						<button type="button" class="close-tab" aria-label={`Close ${tab.title}`} on:click={() => {
+							const next = closeTab(tab.id);
+							if (next) { browserState.url = next.url; browserState.frame?.go(next.url); }
+						}}>×</button>
+					</div>
+				)))}
+				<button type="button" class="tab-tool" title="New tab" on:click={() => {
+					const tab = addTab(); browserState.url = tab.url; browserState.frame?.go(tab.url);
+				}}>＋</button>
+				<button type="button" class="tab-tool" title="Reopen closed tab" on:click={() => {
+					const tab = reopenClosed(); if (tab) { browserState.url = tab.url; browserState.frame?.go(tab.url); }
+				}}>↶</button>
+			</div>
 			<iframe this={use(this.frameel)}></iframe>
 		</div>
 	);
@@ -371,6 +418,14 @@ BrowserView.style = css`
 		flex: 1;
 		border: none;
 	}
+	.browser-tabs { display: flex; flex: 0 0 auto; overflow-x: auto; min-height: 34px; background: #0b0d12; border-bottom: 1px solid #292d36; }
+	.browser-tab { display: flex; flex: 0 0 min(180px, 35vw); min-width: 0; border-right: 1px solid #292d36; }
+	.browser-tab.active { background: #1a1e27; box-shadow: inset 0 -2px var(--accent, #60a5fa); }
+	.browser-tab > button:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+	.browser-tabs button { border: 0; background: transparent; color: #c5cad3; padding: 6px 9px; cursor: pointer; }
+	.close-tab { flex: 0 0 32px; }
+	.tab-tool { flex: 0 0 38px; font-size: 1rem; }
+	@media (pointer: coarse) { .browser-tabs { min-height: 44px; } .browser-tabs button { min-height: 44px; font-size: 16px; } }
 `;
 
 export default BrowserView;

@@ -27,6 +27,32 @@ export function getTransport(): LibcurlClient | EpoxyClient {
 	}
 }
 
+async function chooseReachableWisp() {
+	const fallbacks = demoSettingsStore.wispFallbacks.split("\n").map((url) => url.trim()).filter(Boolean);
+	const candidates = [demoSettingsStore.wispUrl, ...fallbacks].filter((url, index, all) => all.indexOf(url) === index);
+	for (const candidate of candidates) {
+		const reachable = await new Promise<boolean>((resolve) => {
+			let settled = false;
+			let socket: WebSocket;
+			try { socket = new WebSocket(candidate); } catch { resolve(false); return; }
+			const finish = (result: boolean) => {
+				if (settled) return;
+				settled = true;
+				clearTimeout(timeout);
+				socket.close();
+				resolve(result);
+			};
+			const timeout = window.setTimeout(() => finish(false), 2500);
+			socket.addEventListener("open", () => finish(true));
+			socket.addEventListener("error", () => finish(false));
+		});
+		if (reachable) {
+			if (candidate !== demoSettingsStore.wispUrl) demoSettingsStore.wispUrl = candidate;
+			return;
+		}
+	}
+}
+
 async function waitForControllerOrReady(timeoutMs = 10000): Promise<void> {
 	if (navigator.serviceWorker.controller) return;
 
@@ -80,13 +106,24 @@ async function init() {
 	document.body.append(interstitial);
 	interstitial.showModal();
 
-	// Initialize Eruda early for debugging
-	if (typeof eruda !== 'undefined') {
-		eruda.init();
-	}
-
 	try {
 		const registration = await navigator.serviceWorker.register("./sw.js");
+		if (demoSettingsStore.autoUpdate) {
+			let reloading = false;
+			navigator.serviceWorker.addEventListener("controllerchange", () => {
+				if (reloading) return;
+				reloading = true;
+				location.reload();
+			});
+			const activateWaiting = () => registration.waiting?.postMessage({ type: "SKIP_WAITING" });
+			activateWaiting();
+			registration.addEventListener("updatefound", () => {
+				registration.installing?.addEventListener("statechange", () => {
+					if (registration.installing?.state === "installed") activateWaiting();
+				});
+			});
+			window.setInterval(() => registration.update().catch(() => {}), 15 * 60 * 1000);
+		}
 
 		// Non-blocking progress updates on state transitions.
 		const updateStatus = (sw: ServiceWorker | null) => {
@@ -123,6 +160,8 @@ async function init() {
 		await waitForControllerOrReady(10000);
 		interstitial.$.state.status =
 			"Service worker ready, waiting for controller init";
+		interstitial.$.state.status = "Checking network transport...";
+		await chooseReachableWisp();
 		const readySw = navigator.serviceWorker.controller ?? registration.active;
 		if (!readySw) {
 			throw new Error("No service worker available for controller");
