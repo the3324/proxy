@@ -13,6 +13,7 @@ import {
 	parseShortcuts,
 } from "../store";
 import homepage from "./homepage.html?raw";
+import { addBookmark, addHistory } from "../library";
 
 export const browserState = createState({
 	url: demoSettingsStore.homeUrl,
@@ -81,6 +82,15 @@ export const Omnibox: Component = function (cx) {
 					</button>
 					<button type="button" class="nav-btn" title="Reload" aria-label="Reload" on:click={() => browserState.frame?.reload()}>
 						<span class="material-symbols-outlined">refresh</span>
+					</button>
+					<button
+						type="button"
+						class="nav-btn"
+						title="Bookmark current page"
+						aria-label="Bookmark current page"
+						on:click={() => addBookmark(browserState.url)}
+					>
+						<span class="material-symbols-outlined">star</span>
 					</button>
 					<button
 						type="button"
@@ -315,8 +325,10 @@ const BrowserView: Component<
 		plugin.tap(frame.hooks.frameInit.post, (context, props) => {
 			if (!context.isTopLevel) return;
 			browserState.url = context.client.url.href;
+			addHistory(context.client.url.href);
 			plugin.tap(context.client.hooks.lifecycle.navigate, (context, props) => {
 				browserState.url = props.url;
+				addHistory(props.url);
 			});
 		});
 	};

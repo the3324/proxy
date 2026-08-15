@@ -1,5 +1,6 @@
 import { css, type Component } from "dreamland/core";
 import { controller, getTransport } from "..";
+import { clearBookmarks, clearHistory, libraryState } from "../library";
 import {
 	AVAILABLE_TRANSPORTS,
 	type AvailableTransports,
@@ -135,6 +136,75 @@ const SettingsView: Component<
 		await Promise.all((await caches.keys()).map((name) => caches.delete(name)));
 		this.status = "Local data cleared. Reloading...";
 		window.setTimeout(() => location.reload(), 500);
+	};
+
+	const exportBackup = () => {
+		const backup = {
+			version: 1,
+			exportedAt: new Date().toISOString(),
+			settings: {
+				wispUrl: demoSettingsStore.wispUrl,
+				transport: demoSettingsStore.transport,
+				homeUrl: demoSettingsStore.homeUrl,
+				maxRequests: demoSettingsStore.maxRequests,
+				appName: demoSettingsStore.appName,
+				accentColor: demoSettingsStore.accentColor,
+				compactMode: demoSettingsStore.compactMode,
+				theme: demoSettingsStore.theme,
+				shortcuts: demoSettingsStore.shortcuts,
+			},
+			bookmarks: libraryState.bookmarks,
+			history: libraryState.history,
+		};
+		const blob = new Blob([JSON.stringify(backup, null, 2)], {
+			type: "application/json",
+		});
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement("a");
+		link.href = url;
+		link.download = `scramjet-backup-${new Date().toISOString().slice(0, 10)}.json`;
+		link.click();
+		URL.revokeObjectURL(url);
+		this.status = "Backup downloaded.";
+	};
+
+	const importBackup = async (event: Event) => {
+		this.error = "";
+		try {
+			const input = event.target as HTMLInputElement;
+			const file = input.files?.[0];
+			if (!file) return;
+			const backup = JSON.parse(await file.text());
+			if (backup?.version !== 1 || !backup.settings) {
+				throw new TypeError("That file is not a supported Scramjet backup.");
+			}
+			const settings = backup.settings;
+			demoSettingsStore.wispUrl = normalizeWispUrl(settings.wispUrl);
+			demoSettingsStore.transport = normalizeTransport(settings.transport);
+			demoSettingsStore.homeUrl = normalizeHomeUrl(settings.homeUrl);
+			demoSettingsStore.maxRequests = normalizeMaxRequests(settings.maxRequests);
+			demoSettingsStore.appName = normalizeAppName(settings.appName);
+			demoSettingsStore.accentColor = normalizeAccentColor(settings.accentColor);
+			demoSettingsStore.compactMode = Boolean(settings.compactMode);
+			demoSettingsStore.theme = normalizeTheme(settings.theme);
+			demoSettingsStore.shortcuts = normalizeShortcuts(settings.shortcuts);
+			if (Array.isArray(backup.bookmarks)) {
+				localStorage.setItem("scramjet-bookmarks", JSON.stringify(backup.bookmarks.slice(0, 100)));
+			}
+			if (Array.isArray(backup.history)) {
+				localStorage.setItem("scramjet-history", JSON.stringify(backup.history.slice(0, 100)));
+			}
+			this.status = "Backup restored. Reloading...";
+			window.setTimeout(() => location.reload(), 500);
+		} catch (error) {
+			this.status = "";
+			this.error = error instanceof Error ? error.message : "Could not restore backup.";
+		}
+	};
+
+	const clearCaches = async () => {
+		await Promise.all((await caches.keys()).map((name) => caches.delete(name)));
+		this.status = "Cached website data cleared.";
 	};
 
 	return (
@@ -299,6 +369,19 @@ const SettingsView: Component<
 				</button>
 			</div>
 
+			<div class="settings-section-title">Data and privacy</div>
+			<p class="privacy-copy">Choose exactly what to remove, or move your setup to another device with a backup file.</p>
+			<div class="actions data-actions">
+				<button type="button" on:click={exportBackup}>Download Backup</button>
+				<label class="file-button">
+					Restore Backup
+					<input type="file" accept="application/json,.json" on:change={importBackup} />
+				</label>
+				<button type="button" on:click={clearHistory}>Clear History</button>
+				<button type="button" on:click={clearBookmarks}>Clear Bookmarks</button>
+				<button type="button" on:click={clearCaches}>Clear Website Cache</button>
+			</div>
+
 			{use(this.error).map((error) =>
 				error ? <div class="message error">{error}</div> : null
 			)}
@@ -451,6 +534,25 @@ SettingsView.style = css`
 		gap: 8px;
 		margin-top: 18px;
 	}
+
+	.privacy-copy {
+		max-width: 720px;
+		color: #999;
+		font-size: 0.84rem;
+	}
+
+	.file-button {
+		display: inline-flex;
+		align-items: center;
+		border: 1px solid #2a2a2a;
+		background: #1a1a1a;
+		color: #e5e7eb;
+		padding: 0.45em 0.8em;
+		cursor: pointer;
+		font-size: 0.82rem;
+	}
+
+	.file-button input { display: none; }
 
 	button {
 		border: 1px solid #2a2a2a;

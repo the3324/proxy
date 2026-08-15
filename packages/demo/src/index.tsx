@@ -48,6 +48,31 @@ async function waitForControllerOrReady(timeoutMs = 10000): Promise<void> {
 	await Promise.race([ready, controllerChanged, timeout]);
 }
 
+function showFatalError(title: string, error: unknown) {
+	const detail = error instanceof Error ? error.message : String(error);
+	const screen = document.createElement("main");
+	screen.className = "fatal-error";
+	screen.style.cssText = "min-height:100vh;box-sizing:border-box;display:grid;place-items:center;padding:24px;background:#090b10;color:#e5e7eb;font-family:system-ui,-apple-system,sans-serif";
+	const card = document.createElement("section");
+	card.style.cssText = "width:min(560px,100%);border:1px solid #30343d;background:#11141b;padding:24px";
+	const heading = document.createElement("h1");
+	heading.textContent = title;
+	heading.style.cssText = "font-size:1.25rem;margin:0 0 10px";
+	const copy = document.createElement("p");
+	copy.textContent = detail;
+	copy.style.cssText = "color:#aeb6c4;line-height:1.5;overflow-wrap:anywhere";
+	const help = document.createElement("p");
+	help.textContent = "Try reloading first. If it continues, clear this site's data in Safari settings or redeploy the latest GitHub Actions build.";
+	help.style.cssText = "color:#8d96a5;line-height:1.5";
+	const retry = document.createElement("button");
+	retry.textContent = "Reload Scramjet";
+	retry.style.cssText = "min-height:44px;padding:9px 14px;border:1px solid #60a5fa;background:#172033;color:white;cursor:pointer;font:inherit";
+	retry.addEventListener("click", () => location.reload());
+	card.append(heading, copy, help, retry);
+	screen.append(card);
+	app.replaceWith(screen);
+}
+
 async function init() {
 	const interstitial: any = (
 		<LoadInterstitial status={"Loading"}></LoadInterstitial>
@@ -118,14 +143,15 @@ async function init() {
 		console.log(controller);
 		interstitial.$.state.status = "Controller initialized";
 		interstitial.close();
+		return true;
 	} catch (e) {
 		console.error("Error during service worker registration:", e);
 		// Always close the modal on error to prevent hanging UI.
 		try {
 			interstitial.close();
 		} catch {}
-		app.innerText =
-			"Failed to register service worker. Check console for details.";
+		showFatalError("Scramjet could not start", e);
+		return false;
 	}
 }
 
@@ -134,16 +160,13 @@ async function mount() {
 		const root = <App />;
 		app.replaceWith(root);
 	} catch (e) {
-		let err = e as any;
-		app.replaceWith(
-			document.createTextNode(
-				`Error mounting: ${"message" in err ? err.message : err}`
-			)
-		);
+		showFatalError("The interface could not load", e);
 		console.error(err);
 		throw e;
 	}
 }
 
-init().then(() => mount());
+init().then((ready) => {
+	if (ready) mount();
+});
 export { controller, cachePlugin };

@@ -4,6 +4,8 @@ import BrowserView from "./pages/BrowserView";
 import RequestViewer from "./pages/RequestViewer";
 import PlaygroundView from "./pages/Playground";
 import SettingsView from "./pages/SettingsPage";
+import LibraryView from "./pages/LibraryPage";
+import DiagnosticsView from "./pages/DiagnosticsPage";
 import { Omnibox } from "./pages/BrowserView";
 import { requestsState } from "./pages/RequestViewer";
 import { demoSettingsStore } from "./store";
@@ -57,7 +59,7 @@ const App: Component<
 	{},
 	{},
 	{
-		activeTab: "browser" | "requests" | "playground" | "settings";
+		activeTab: "browser" | "library" | "requests" | "playground" | "diagnostics" | "settings";
 		showSafariWarning: boolean;
 	}
 > = function (cx) {
@@ -105,6 +107,26 @@ const App: Component<
 				)}
 			>
 				<div class="tab-bar">
+					<button
+						class={use(this.activeTab).map(
+							(tab) => `tab-button ${tab === "diagnostics" ? "active" : ""}`
+						)}
+						on:click={() => {
+							this.activeTab = "diagnostics";
+						}}
+					>
+						Diagnostics
+					</button>
+					<button
+						class={use(this.activeTab).map(
+							(tab) => `tab-button ${tab === "library" ? "active" : ""}`
+						)}
+						on:click={() => {
+							this.activeTab = "library";
+						}}
+					>
+						Library
+					</button>
 					<button
 						class={use(this.activeTab).map(
 							(tab) => `tab-button ${tab === "browser" ? "active" : ""}`
@@ -156,6 +178,21 @@ const App: Component<
 					<ConnectionStatus />
 					<FlagEditor inline={true} />
 				</div>
+			</div>
+			<div
+				class={use(this.activeTab).map(
+					(tab) =>
+						`tab-panel diagnostics-panel ${tab === "diagnostics" ? "active" : ""}`
+				)}
+			>
+				<DiagnosticsView />
+			</div>
+			<div
+				class={use(this.activeTab).map(
+					(tab) => `tab-panel library-panel ${tab === "library" ? "active" : ""}`
+				)}
+			>
+				<LibraryView />
 			</div>
 			<div
 				class={use(this.activeTab).map(
