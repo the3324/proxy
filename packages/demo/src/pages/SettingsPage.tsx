@@ -83,6 +83,18 @@ const SettingsView: Component<
 		await applySettings();
 	};
 
+	const clearLocalData = async () => {
+		if (!window.confirm("Clear Scramjet settings, caches, and local browsing data on this device?")) {
+			return;
+		}
+		this.status = "Clearing local data...";
+		localStorage.clear();
+		sessionStorage.clear();
+		await Promise.all((await caches.keys()).map((name) => caches.delete(name)));
+		this.status = "Local data cleared. Reloading...";
+		window.setTimeout(() => location.reload(), 500);
+	};
+
 	return (
 		<div class="settings-panel">
 			<div class="settings-header">
@@ -172,6 +184,9 @@ const SettingsView: Component<
 					}}
 				>
 					Revert Inputs
+				</button>
+				<button type="button" class="danger" on:click={clearLocalData}>
+					Clear Local Data
 				</button>
 			</div>
 
@@ -309,6 +324,15 @@ SettingsView.style = css`
 
 	button.primary:hover {
 		background: #262626;
+	}
+
+	button.danger {
+		border-color: #6b2a2a;
+		color: #f3b5b5;
+	}
+
+	button.danger:hover {
+		background: #351818;
 	}
 
 	.message {

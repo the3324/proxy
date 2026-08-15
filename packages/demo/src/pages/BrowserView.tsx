@@ -32,15 +32,36 @@ export const Omnibox: Component = function (cx) {
 			}}
 		>
 			<div class="browser-omnibox-shell">
-				<div class="omnibox-nav" aria-hidden="true">
-					<button type="button" class="nav-btn" on:click={() => browserState.frame?.back()}>
+				<div class="omnibox-nav">
+					<button type="button" class="nav-btn" title="Back" aria-label="Back" on:click={() => browserState.frame?.back()}>
 						<span class="material-symbols-outlined">arrow_back</span>
 					</button>
-					<button type="button" class="nav-btn" on:click={() => browserState.frame?.forward()}>
+					<button type="button" class="nav-btn" title="Forward" aria-label="Forward" on:click={() => browserState.frame?.forward()}>
 						<span class="material-symbols-outlined">arrow_forward</span>
 					</button>
-					<button type="button" class="nav-btn" on:click={() => browserState.frame?.reload()}>
+					<button type="button" class="nav-btn" title="Reload" aria-label="Reload" on:click={() => browserState.frame?.reload()}>
 						<span class="material-symbols-outlined">refresh</span>
+					</button>
+					<button
+						type="button"
+						class="nav-btn"
+						title="Home"
+						aria-label="Home"
+						on:click={() => {
+							browserState.url = demoSettingsStore.homeUrl;
+							browserState.frame?.go(demoSettingsStore.homeUrl);
+						}}
+					>
+						<span class="material-symbols-outlined">home</span>
+					</button>
+					<button
+						type="button"
+						class="nav-btn"
+						title="Open current address directly"
+						aria-label="Open current address directly"
+						on:click={() => window.open(browserState.url, "_blank", "noopener,noreferrer")}
+					>
+						<span class="material-symbols-outlined">open_in_new</span>
 					</button>
 				</div>
 				<input
@@ -147,12 +168,12 @@ const BrowserView: Component<
 						body: "",
 						status: 302,
 						statusText: "Found",
-						headers: ScramjetHeaders.fromRawHeaders([
+							headers: ScramjetHeaders.fromRawHeaders([
 							[
 								"Location",
 								new URL(
-									`/?goto=${encodeURIComponent(context.parsed.url.href)}`,
-									location.origin
+									`?goto=${encodeURIComponent(context.parsed.url.href)}`,
+									document.baseURI
 								).href,
 							],
 						]),
