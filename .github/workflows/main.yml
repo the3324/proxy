@@ -156,7 +156,7 @@ jobs:
         run: pnpm install
 
       - name: Get artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: scramjet-package
           path: packages/core
@@ -194,13 +194,13 @@ jobs:
         run: pnpm install
 
       - name: Get artifacts (scramjet/core)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: scramjet
           path: packages/core/dist
 
       - name: Get artifacts (scramjet/controller)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: scramjet-controller
           path: packages/controller/dist
@@ -260,13 +260,13 @@ jobs:
           github_token: ${{ github.token }}
 
       - name: Get artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: scramjet-package
           path: .
 
       - name: Get artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: scramjet-controller-package
           path: .
@@ -316,13 +316,13 @@ jobs:
           registry-url: "https://registry.npmjs.org"
 
       - name: Get artifacts (scramjet/core)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: scramjet-package
           path: .
 
       - name: Get artifacts (scramjet/controller)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: scramjet-controller-package
           path: .
@@ -367,13 +367,13 @@ jobs:
         run: pnpm install
 
       - name: Get artifacts (scramjet/core)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: scramjet
           path: packages/core/dist
 
       - name: Get artifacts (scramjet/controller)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: scramjet-controller
           path: packages/controller/dist
@@ -397,7 +397,7 @@ jobs:
 
     steps:
       - name: Get artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: frontend
           path: .
