@@ -6,11 +6,12 @@ import {
 const { Plugin: ScramjetPlugin, ScramjetHeaders } = window.$scramjet;
 import type { Plugin } from "@mercuryworkshop/scramjet";
 import type { Frame } from "@mercuryworkshop/scramjet-controller";
-import { cachePlugin, controller } from "..";
+import { cachePlugin, controller, getTransport } from "..";
 import {
 	demoSettingsDefaults,
 	demoSettingsStore,
 	parseShortcuts,
+	profileForUrl,
 } from "../store";
 import homepage from "./homepage.html?raw";
 import { addBookmark, addHistory } from "../library";
@@ -19,6 +20,7 @@ import { activeTab, addTab, closeTab, reopenClosed, selectTab, tabsState, update
 export const browserState = createState({
 	url: demoSettingsStore.homeUrl,
 	frame: null! as Frame,
+	loading: false,
 });
 
 const isAppleWebKit = /AppleWebKit/i.test(navigator.userAgent) &&
@@ -44,6 +46,24 @@ function encodeUtf8Base64(value: string) {
 	return btoa(binary);
 }
 
+function applySiteProfile(url: string) {
+	const profile = profileForUrl(url);
+	if (!profile) return;
+	if (profile === "streaming") demoSettingsStore.streamingMode = true;
+	if (profile === "safe") { demoSettingsStore.safeMode = true; demoSettingsStore.streamingMode = true; }
+	if (profile === "safari" && demoSettingsStore.transport !== "epoxy") {
+		demoSettingsStore.transport = "epoxy";
+		controller.setTransport(getTransport());
+	}
+}
+
+function go(url: string) {
+	applySiteProfile(url);
+	browserState.loading = true;
+	browserState.frame?.go(url);
+	window.setTimeout(() => { browserState.loading = false; }, 15000);
+}
+
 export const Omnibox: Component = function (cx) {
 	const supportsFullscreen =
 		typeof document.documentElement.requestFullscreen === "function";
@@ -56,7 +76,7 @@ export const Omnibox: Component = function (cx) {
 			: looksLikeHost
 				? `https://${value}`
 				: `https://www.google.com/search?q=${encodeURIComponent(value)}`;
-		browserState.frame?.go(browserState.url);
+		go(browserState.url);
 		updateActiveTab(browserState.url);
 	};
 
@@ -111,7 +131,7 @@ export const Omnibox: Component = function (cx) {
 						aria-label="Home"
 						on:click={() => {
 							browserState.url = demoSettingsStore.homeUrl;
-							browserState.frame?.go(demoSettingsStore.homeUrl);
+							go(demoSettingsStore.homeUrl);
 						}}
 					>
 						<span class="material-symbols-outlined">home</span>
@@ -159,6 +179,7 @@ export const Omnibox: Component = function (cx) {
 					>
 						<span class="material-symbols-outlined">fullscreen</span>
 					</button> : null}
+					{use(browserState.loading).map((loading) => loading ? <button type="button" class="nav-btn" title="Stop loading" aria-label="Stop loading" on:click={() => { browserState.frame?.element.contentWindow?.stop(); browserState.loading = false; }}><span class="material-symbols-outlined">close</span></button> : null)}
 				</div>
 				<input
 					id="search"
@@ -287,7 +308,7 @@ const BrowserView: Component<
 		browserState.frame = controller.createFrame(this.frameel);
 		// Scramjet's response cache can retain rewritten/binary responses that
 		// WebKit later refuses to decode. Keep it disabled on iPadOS/iOS.
-		if (!isAppleWebKit) cachePlugin.install(browserState.frame);
+		if (!isAppleWebKit && !demoSettingsStore.safeMode) cachePlugin.install(browserState.frame);
 		const openfix = new ScramjetPlugin("openfix");
 		openfix.tap(
 			browserState.frame.hooks.fetch.intercept,
@@ -348,11 +369,11 @@ const BrowserView: Component<
 
 		let goto = new URL(location.href).searchParams.get("goto");
 		if (goto) {
-			browserState.frame?.go(goto);
+			go(goto);
 			history.replaceState(null, "", location.href.split("?")[0]);
 		} else if (activeTab()?.url && activeTab().url !== demoSettingsStore.homeUrl) {
 			browserState.url = activeTab().url;
-			browserState.frame?.go(activeTab().url);
+			go(activeTab().url);
 		}
 	};
 	const initPlugin = (frame: Frame) => {
@@ -360,10 +381,14 @@ const BrowserView: Component<
 		plugin.tap(frame.hooks.frameInit.post, (context, props) => {
 			if (!context.isTopLevel) return;
 			browserState.url = context.client.url.href;
+			browserState.loading = false;
 			addHistory(context.client.url.href);
 			updateActiveTab(context.client.url.href);
 			plugin.tap(context.client.hooks.lifecycle.navigate, (context, props) => {
 				browserState.url = props.url;
+				browserState.loading = true;
+				window.setTimeout(() => { browserState.loading = false; }, 15000);
+				applySiteProfile(props.url);
 				addHistory(props.url);
 				updateActiveTab(props.url);
 			});
@@ -383,26 +408,26 @@ const BrowserView: Component<
 				if (distance < 0 && touchStartX > window.innerWidth - 32) browserState.frame?.forward();
 			}}
 		>
-			<div class="browser-tabs" role="tablist" aria-label="Browser tabs">
+			{use(demoSettingsStore.safeMode).map((safeMode) => safeMode ? null : <div class="browser-tabs" role="tablist" aria-label="Browser tabs">
 				{use(tabsState.tabs, tabsState.activeId).map(([tabs, activeId]) => tabs.map((tab) => (
 					<div class={`browser-tab ${tab.id === activeId ? "active" : ""}`}>
 						<button type="button" role="tab" title={tab.url} on:click={() => {
 							const selected = selectTab(tab.id);
-							if (selected) { browserState.url = selected.url; browserState.frame?.go(selected.url); }
+							if (selected) { browserState.url = selected.url; go(selected.url); }
 						}}>{tab.title}</button>
 						<button type="button" class="close-tab" aria-label={`Close ${tab.title}`} on:click={() => {
 							const next = closeTab(tab.id);
-							if (next) { browserState.url = next.url; browserState.frame?.go(next.url); }
+							if (next) { browserState.url = next.url; go(next.url); }
 						}}>×</button>
 					</div>
 				)))}
 				<button type="button" class="tab-tool" title="New tab" on:click={() => {
-					const tab = addTab(); browserState.url = tab.url; browserState.frame?.go(tab.url);
+					const tab = addTab(); browserState.url = tab.url; go(tab.url);
 				}}>＋</button>
 				<button type="button" class="tab-tool" title="Reopen closed tab" on:click={() => {
-					const tab = reopenClosed(); if (tab) { browserState.url = tab.url; browserState.frame?.go(tab.url); }
+					const tab = reopenClosed(); if (tab) { browserState.url = tab.url; go(tab.url); }
 				}}>↶</button>
-			</div>
+			</div>)}
 			<iframe this={use(this.frameel)}></iframe>
 		</div>
 	);

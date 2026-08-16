@@ -36,6 +36,8 @@ const SettingsView: Component<
 		textScaleInput: string;
 		wispFallbacksInput: string;
 		compatibilityModeInput: "balanced" | "safari" | "low-memory";
+		safeModeInput: boolean;
+		siteProfilesInput: string;
 		status: string;
 		error: string;
 	},
@@ -58,6 +60,8 @@ const SettingsView: Component<
 	this.textScaleInput ??= String(demoSettingsStore.textScale);
 	this.wispFallbacksInput ??= demoSettingsStore.wispFallbacks;
 	this.compatibilityModeInput ??= demoSettingsStore.compatibilityMode;
+	this.safeModeInput ??= demoSettingsStore.safeMode;
+	this.siteProfilesInput ??= demoSettingsStore.siteProfiles;
 	this.status ??= "";
 	this.error ??= "";
 
@@ -79,6 +83,8 @@ const SettingsView: Component<
 		this.textScaleInput = String(demoSettingsStore.textScale);
 		this.wispFallbacksInput = demoSettingsStore.wispFallbacks;
 		this.compatibilityModeInput = demoSettingsStore.compatibilityMode;
+		this.safeModeInput = demoSettingsStore.safeMode;
+		this.siteProfilesInput = demoSettingsStore.siteProfiles;
 	};
 
 	const applySettings = async () => {
@@ -113,10 +119,19 @@ const SettingsView: Component<
 			demoSettingsStore.textScale = Math.min(150, Math.max(80, Number(this.textScaleInput) || 100));
 			demoSettingsStore.wispFallbacks = this.wispFallbacksInput.trim();
 			demoSettingsStore.compatibilityMode = this.compatibilityModeInput;
+			demoSettingsStore.safeMode = this.safeModeInput;
+			demoSettingsStore.siteProfiles = this.siteProfilesInput.trim();
 			if (this.compatibilityModeInput === "safari") demoSettingsStore.transport = "epoxy";
 			if (this.compatibilityModeInput === "low-memory") {
 				demoSettingsStore.streamingMode = true;
 				demoSettingsStore.maxRequests = Math.min(demoSettingsStore.maxRequests, 50);
+			}
+			if (this.safeModeInput) {
+				demoSettingsStore.streamingMode = true;
+				demoSettingsStore.developerMode = false;
+				demoSettingsStore.compactMode = true;
+				demoSettingsStore.restoreSession = false;
+				demoSettingsStore.maxRequests = Math.min(demoSettingsStore.maxRequests, 25);
 			}
 			document.title = nextAppName;
 			document.documentElement.style.setProperty("--accent", nextAccentColor);
@@ -135,6 +150,9 @@ const SettingsView: Component<
 			this.transportInput = demoSettingsStore.transport;
 			this.maxRequestsInput = String(demoSettingsStore.maxRequests);
 			this.streamingModeInput = demoSettingsStore.streamingMode;
+			this.developerModeInput = demoSettingsStore.developerMode;
+			this.compactModeInput = demoSettingsStore.compactMode;
+			this.restoreSessionInput = demoSettingsStore.restoreSession;
 			if (wispChanged || transportChanged || presetChangedTransport) {
 				controller.setTransport(getTransport());
 			}
@@ -168,6 +186,8 @@ const SettingsView: Component<
 		this.textScaleInput = "100";
 		this.wispFallbacksInput = "";
 		this.compatibilityModeInput = "balanced";
+		this.safeModeInput = false;
+		this.siteProfilesInput = demoSettingsDefaults.siteProfiles;
 		await applySettings();
 	};
 
@@ -204,6 +224,8 @@ const SettingsView: Component<
 				textScale: demoSettingsStore.textScale,
 				wispFallbacks: demoSettingsStore.wispFallbacks,
 				compatibilityMode: demoSettingsStore.compatibilityMode,
+				safeMode: demoSettingsStore.safeMode,
+				siteProfiles: demoSettingsStore.siteProfiles,
 			},
 			bookmarks: libraryState.bookmarks,
 			history: libraryState.history,
@@ -247,6 +269,8 @@ const SettingsView: Component<
 			demoSettingsStore.textScale = Math.min(150, Math.max(80, Number(settings.textScale) || 100));
 			demoSettingsStore.wispFallbacks = typeof settings.wispFallbacks === "string" ? settings.wispFallbacks : "";
 			demoSettingsStore.compatibilityMode = settings.compatibilityMode === "safari" || settings.compatibilityMode === "low-memory" ? settings.compatibilityMode : "balanced";
+			demoSettingsStore.safeMode = Boolean(settings.safeMode);
+			demoSettingsStore.siteProfiles = typeof settings.siteProfiles === "string" ? settings.siteProfiles : demoSettingsDefaults.siteProfiles;
 			if (Array.isArray(backup.bookmarks)) {
 				localStorage.setItem("scramjet-bookmarks", JSON.stringify(backup.bookmarks.slice(0, 100)));
 			}
@@ -331,6 +355,7 @@ const SettingsView: Component<
 			<div class="settings-section-title">Connection and browsing</div>
 			<label class="field"><span class="label">Compatibility preset</span><select value={use(this.compatibilityModeInput)} on:change={(e: Event) => { this.compatibilityModeInput = (e.target as HTMLSelectElement).value as typeof this.compatibilityModeInput; }}><option value="balanced">Balanced</option><option value="safari">Safari / iPad compatibility</option><option value="low-memory">Low memory / streaming</option></select><span class="hint">Presets apply recommended transport and logging choices when settings are saved.</span></label>
 			<label class="toggle-field"><input type="checkbox" checked={use(this.streamingModeInput)} on:change={(e: Event) => { this.streamingModeInput = (e.target as HTMLInputElement).checked; }} /><span>Streaming mode (lower logging and visual overhead)</span></label>
+			<label class="toggle-field"><input type="checkbox" checked={use(this.safeModeInput)} on:change={(e: Event) => { this.safeModeInput = (e.target as HTMLInputElement).checked; }} /><span>Safe mode (minimal cache, logging, tabs, effects, and developer tools)</span></label>
 			<label class="toggle-field"><input type="checkbox" checked={use(this.restoreSessionInput)} on:change={(e: Event) => { this.restoreSessionInput = (e.target as HTMLInputElement).checked; }} /><span>Restore browsing tabs after restarting</span></label>
 			<label class="toggle-field"><input type="checkbox" checked={use(this.autoUpdateInput)} on:change={(e: Event) => { this.autoUpdateInput = (e.target as HTMLInputElement).checked; }} /><span>Automatically install deployed updates</span></label>
 			<label class="toggle-field"><input type="checkbox" checked={use(this.developerModeInput)} on:change={(e: Event) => { this.developerModeInput = (e.target as HTMLInputElement).checked; }} /><span>Developer tools (Requests, Playground and flags)</span></label>
@@ -380,6 +405,7 @@ const SettingsView: Component<
 				</span>
 			</label>
 			<label class="field"><span class="label">Fallback Wisp servers</span><textarea rows="3" value={use(this.wispFallbacksInput)} spellcheck={false} on:input={(e: InputEvent) => { this.wispFallbacksInput = (e.target as HTMLTextAreaElement).value; }}></textarea><span class="hint">One trusted wss:// endpoint per line. Diagnostics can test these if the main server fails.</span></label>
+			<label class="field"><span class="label">Per-site compatibility profiles</span><textarea rows="5" value={use(this.siteProfilesInput)} spellcheck={false} on:input={(e: InputEvent) => { this.siteProfilesInput = (e.target as HTMLTextAreaElement).value; }}></textarea><span class="hint">One per line: domain|balanced, safari, streaming, or safe.</span></label>
 
 			<label class="field">
 				<span class="label">Home page URL</span>

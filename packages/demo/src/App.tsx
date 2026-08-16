@@ -61,6 +61,7 @@ const App: Component<
 	{
 		activeTab: "browser" | "library" | "requests" | "playground" | "diagnostics" | "settings";
 		showSafariWarning: boolean;
+		showSetup: boolean;
 	}
 > = function (cx) {
 	this.activeTab ??= "browser";
@@ -75,12 +76,21 @@ const App: Component<
 		navigator.vendor.includes("Apple");
 	this.showSafariWarning ??=
 		isSafari && localStorage.getItem("dismissed-safari-warning") !== "1";
+	this.showSetup ??= localStorage.getItem("scramjet-setup-complete-v1") !== "1";
+	const finishSetup = (preset: "balanced" | "ipad" | "streaming") => {
+		if (preset === "ipad") { demoSettingsStore.transport = "epoxy"; demoSettingsStore.compatibilityMode = "safari"; }
+		if (preset === "streaming") { demoSettingsStore.streamingMode = true; demoSettingsStore.compatibilityMode = "low-memory"; demoSettingsStore.maxRequests = 50; }
+		localStorage.setItem("scramjet-setup-complete-v1", "1");
+		this.showSetup = false;
+		location.reload();
+	};
 	return (
 		<div
-			class={use(demoSettingsStore.theme).map((theme) =>
-				`theme-${theme || "midnight"}`
+			class={use(demoSettingsStore.theme, demoSettingsStore.safeMode).map(([theme, safe]) =>
+				`theme-${theme || "midnight"} ${safe ? "safe-mode" : ""}`
 			)}
 		>
+			{use(this.showSetup).map((visible) => visible ? <div class="setup-overlay"><div class="setup-card"><h1>Set up Scramjet</h1><p>Choose a starting profile. You can change everything later in Settings.</p><div class="setup-options"><button type="button" on:click={() => finishSetup("ipad")}><strong>iPad / Safari</strong><span>Epoxy and Apple compatibility defaults</span></button><button type="button" on:click={() => finishSetup("streaming")}><strong>Cloud gaming</strong><span>Lower logging and memory usage</span></button><button type="button" on:click={() => finishSetup("balanced")}><strong>Balanced</strong><span>Standard desktop settings</span></button></div></div></div> : null)}
 			{use(this.showSafariWarning).map((visible) =>
 				visible ? (
 					<div class="safari-warning">
@@ -429,6 +439,15 @@ App.style = css`
 			transition-duration: 0.01ms !important;
 		}
 	}
+	.safe-mode *, .safe-mode *::before, .safe-mode *::after { animation: none !important; transition: none !important; backdrop-filter: none !important; }
+	.setup-overlay { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: 20px; background: rgba(3, 5, 9, 0.94); }
+	.setup-card { width: min(620px, 100%); padding: 24px; border: 1px solid #343b49; background: #11151d; color: #eef2f7; box-sizing: border-box; }
+	.setup-card h1 { margin: 0 0 8px; font-size: 1.35rem; }
+	.setup-card p { color: #9ca7b6; }
+	.setup-options { display: grid; gap: 10px; margin-top: 20px; }
+	.setup-options button { display: flex; flex-direction: column; align-items: flex-start; min-height: 64px; padding: 11px 13px; border: 1px solid #343b49; background: #191e28; color: #fff; cursor: pointer; text-align: left; }
+	.setup-options button:hover { border-color: var(--accent, #60a5fa); }
+	.setup-options span { color: #9ca7b6; margin-top: 4px; }
 	:scope.theme-midnight {
 		--app-background: #05070c;
 		--toolbar-background: #0f1118;

@@ -49,6 +49,8 @@ export const demoSettingsStore = createStore(
 		textScale: 100,
 		wispFallbacks: "",
 		compatibilityMode: "balanced" as "balanced" | "safari" | "low-memory",
+		safeMode: false,
+		siteProfiles: "now.gg|streaming\nplay.geforcenow.com|streaming\nxbox.com|streaming",
 	},
 	{
 		ident: "scramjet-demo-settings",
@@ -190,4 +192,17 @@ export const demoSettingsDefaults = {
 	textScale: 100,
 	wispFallbacks: "",
 	compatibilityMode: "balanced" as const,
+	safeMode: false,
+	siteProfiles: "now.gg|streaming\nplay.geforcenow.com|streaming\nxbox.com|streaming",
 };
+
+export function profileForUrl(url: string): "balanced" | "safari" | "streaming" | "safe" | null {
+	let hostname: string;
+	try { hostname = new URL(url).hostname.toLowerCase(); } catch { return null; }
+	for (const line of demoSettingsStore.siteProfiles.split("\n")) {
+		const [domain, profile] = line.split("|").map((part) => part.trim().toLowerCase());
+		if (!domain || !profile || !(hostname === domain || hostname.endsWith(`.${domain}`))) continue;
+		if (profile === "balanced" || profile === "safari" || profile === "streaming" || profile === "safe") return profile;
+	}
+	return null;
+}

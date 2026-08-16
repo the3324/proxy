@@ -106,8 +106,25 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  smoke-test:
+    name: Test deployed site
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify public app files
+        env:
+          PAGE_URL: ${{ needs.deploy.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 12 --retry-delay 5 "${PAGE_URL}" | grep -q "Scramjet Browser"
+          for file in sw.js manifest.webmanifest scramjet/scramjet.js controller/controller.api.js; do
+            curl --fail --location --retry 6 --retry-delay 5 --output /dev/null "${PAGE_URL}${file}"
+          done
