@@ -22,6 +22,8 @@ type PlaygroundProject = {
 };
 
 const PLAYGROUND_STORAGE_KEY = "scramjet-demo-playground-projects-v1";
+const PLAYGROUND_SNAPSHOTS_KEY = "scramjet-demo-playground-snapshots-v1";
+const MAX_IMPORT_BYTES = 4 * 1024 * 1024;
 
 const DEFAULT_FILES: PlaygroundFile[] = [
 	{
@@ -88,6 +90,28 @@ const DEFAULT_FILE_MAP = Object.fromEntries(
 	DEFAULT_FILES.map((file) => [file.path, file.content])
 );
 
+const PROJECT_TEMPLATES: Record<string, Record<string, string>> = {
+	blank: { "/index.html": "<!doctype html>\n<html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>New site</title></head><body><h1>Hello</h1></body></html>\n" },
+	portfolio: {
+		"/index.html": "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Portfolio</title><link rel=\"stylesheet\" href=\"style.css\"></head><body><main><p class=\"eyebrow\">PORTFOLIO</p><h1>Your Name</h1><p>Designer, developer, and creator.</p><a href=\"mailto:hello@example.com\">Contact me</a></main></body></html>",
+		"/style.css": "body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b1020;color:#eef2ff;font:18px system-ui}main{max-width:680px;padding:32px}.eyebrow{color:#818cf8;letter-spacing:.2em}h1{font-size:clamp(3rem,10vw,7rem);margin:.1em 0}a{color:#a5b4fc}",
+	},
+	game: {
+		"/index.html": "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Mini Game</title><style>body{margin:0;background:#111827;color:white;font:20px system-ui;text-align:center}canvas{max-width:100%;background:#030712}</style></head><body><h1>Tap Game</h1><p id=\"score\">Score: 0</p><canvas id=\"game\" width=\"600\" height=\"360\"></canvas><script src=\"game.js\"></script></body></html>",
+		"/game.js": "const c=document.querySelector('#game'),x=c.getContext('2d'),s=document.querySelector('#score');let score=0,target={x:300,y:180};function draw(){x.clearRect(0,0,c.width,c.height);x.fillStyle='#60a5fa';x.beginPath();x.arc(target.x,target.y,28,0,Math.PI*2);x.fill()}c.addEventListener('pointerdown',e=>{const r=c.getBoundingClientRect(),px=(e.clientX-r.left)*c.width/r.width,py=(e.clientY-r.top)*c.height/r.height;if(Math.hypot(px-target.x,py-target.y)<35){score++;s.textContent='Score: '+score;target={x:40+Math.random()*520,y:40+Math.random()*280};draw()}});draw();",
+	},
+};
+
+const isTextFile = (file: File) => file.type.startsWith("text/") || /\.(html?|css|js|mjs|cjs|ts|tsx|jsx|json|md|txt|xml|svg|csv)$/i.test(file.name);
+const dataUrlBytes = (value: string) => {
+	const comma = value.indexOf(",");
+	const binary = atob(value.slice(comma + 1));
+	const bytes = new Uint8Array(binary.length);
+	for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+	return bytes;
+};
+const isBinaryAsset = (value: string) => /^data:[^;,]+;base64,/i.test(value);
+
 const loadProjects = (): PlaygroundProject[] => {
 	try {
 		const raw = localStorage.getItem(PLAYGROUND_STORAGE_KEY);
@@ -123,7 +147,8 @@ const loadProjects = (): PlaygroundProject[] => {
 };
 
 const saveProjects = (projects: PlaygroundProject[]) => {
-	localStorage.setItem(PLAYGROUND_STORAGE_KEY, JSON.stringify(projects));
+	try { localStorage.setItem(PLAYGROUND_STORAGE_KEY, JSON.stringify(projects)); return true; }
+	catch { return false; }
 };
 
 const languageFromPath = (path: string) => {
@@ -208,13 +233,16 @@ const zipProject = (files: Record<string, string>) => {
 	const u32 = (view: DataView, at: number, value: number) => view.setUint32(at, value, true);
 	const allFiles = {
 		...files,
+		"/start-mac.command": "#!/bin/bash\ncd \"$(dirname \"$0\")\"\nIP=$(ipconfig getifaddr en0 2>/dev/null || echo YOUR-MAC-IP)\necho \"This Mac: http://localhost:8080\"\necho \"Other devices: http://$IP:8080\"\npython3 -m http.server 8080 --bind 0.0.0.0\n",
+		"/start-windows.bat": "@echo off\ncd /d %~dp0\necho This computer: http://localhost:8080\necho Find the IPv4 address below, then open http://YOUR-IP:8080 on another device.\nipconfig | findstr /i \"IPv4\"\npy -m http.server 8080 --bind 0.0.0.0\npause\n",
+		"/.github/workflows/pages.yml": "name: Deploy site\non:\n  push:\n    branches: [main]\n  workflow_dispatch:\npermissions:\n  contents: read\n  pages: write\n  id-token: write\njobs:\n  deploy:\n    runs-on: ubuntu-latest\n    environment:\n      name: github-pages\n      url: ${{ steps.deployment.outputs.page_url }}\n    steps:\n      - uses: actions/checkout@v4\n      - uses: actions/configure-pages@v5\n      - uses: actions/upload-pages-artifact@v3\n        with:\n          path: .\n      - id: deployment\n        uses: actions/deploy-pages@v4\n",
 		"/README_LOCAL_NETWORK.txt": `RUN ON YOUR LOCAL NETWORK\n\n1. Extract this ZIP.\n2. Open Terminal or Command Prompt inside the extracted folder.\n\nMac / Linux:\n  python3 -m http.server 8080 --bind 0.0.0.0\n\nWindows:\n  py -m http.server 8080 --bind 0.0.0.0\n\nOn the host computer open:\n  http://localhost:8080\n\nOn another device using the same Wi-Fi open:\n  http://YOUR-COMPUTER-IP:8080\n\nFind a Mac Wi-Fi address:\n  ipconfig getifaddr en0\n\nFind a Windows address:\n  ipconfig\n\nStop the server with Control+C. Only share on a network you trust.\n`,
 	};
 	for (const [rawName, content] of Object.entries(allFiles)) {
 		const safeName = rawName.replace(/^\/+/, "").split("/").filter((part) => part && part !== "." && part !== "..").join("/");
 		if (!safeName) continue;
 		const name = encoder.encode(safeName);
-		const data = encoder.encode(content);
+		const data = isBinaryAsset(content) ? dataUrlBytes(content) : encoder.encode(content);
 		const checksum = crc32(data);
 		const local = new Uint8Array(30 + name.length + data.length);
 		const localView = new DataView(local.buffer);
@@ -257,6 +285,10 @@ const PlaygroundView: Component<
 		rewriteFile: string;
 		runMenuOpen: boolean;
 		networkExported: boolean;
+		importStatus: string;
+		validationResults: string[];
+		previewDevice: "responsive" | "phone" | "ipad" | "desktop";
+		consoleLogs: string[];
 	},
 	{}
 > = function (cx) {
@@ -277,10 +309,18 @@ const PlaygroundView: Component<
 	this.rewriteFile ??= "";
 	this.runMenuOpen ??= false;
 	this.networkExported ??= false;
+	this.importStatus ??= "";
+	this.validationResults ??= [];
+	this.previewDevice ??= "responsive";
+	this.consoleLogs ??= [];
 
 	cx.mount = async () => {
 		await controller.wait();
 		this.frame = controller.createFrame();
+		window.addEventListener("message", (event) => {
+			if (event.data?.source !== "scramjet-playground-console") return;
+			this.consoleLogs = [...this.consoleLogs, `[${event.data.level}] ${event.data.message}`].slice(-100);
+		});
 
 		use(this.selectedFile, this.selectedProjectId).listen(() => {
 			if (this.previewMode === "rewritten") {
@@ -306,7 +346,111 @@ const PlaygroundView: Component<
 		updater: (projects: PlaygroundProject[]) => PlaygroundProject[]
 	) => {
 		this.projects = updater(this.projects);
-		saveProjects(this.projects);
+		if (!saveProjects(this.projects)) this.importStatus = "Storage is full. Remove large assets or export the project now.";
+	};
+
+	const fileToStoredValue = (file: File) => new Promise<string>((resolve, reject) => {
+		if (isTextFile(file)) { file.text().then(resolve, reject); return; }
+		const reader = new FileReader();
+		reader.onload = () => resolve(String(reader.result));
+		reader.onerror = () => reject(reader.error);
+		reader.readAsDataURL(file);
+	});
+
+	const importFiles = async (event: Event) => {
+		const input = event.target as HTMLInputElement;
+		const selected = Array.from(input.files ?? []);
+		if (!selected.length) return;
+		if (selected.length === 1 && selected[0]!.name.endsWith(".playground.json")) {
+			try {
+				const backup = JSON.parse(await selected[0]!.text());
+				if (backup?.format !== "scramjet-playground-project" || !backup.project?.files) throw new Error("Invalid project backup");
+				const restored = { id: `imported-${Date.now()}`, name: String(backup.project.name || "Imported project"), files: { ...backup.project.files } };
+				updateProjects((projects) => [...projects, restored]);
+				this.selectedProjectId = restored.id; this.selectedFile = Object.keys(restored.files)[0] ?? "/index.html";
+				this.importStatus = "Editable Playground project imported.";
+			} catch { this.importStatus = "That Playground project backup is invalid."; }
+			input.value = ""; return;
+		}
+		const total = selected.reduce((sum, file) => sum + file.size, 0);
+		if (total > MAX_IMPORT_BYTES) { this.importStatus = "Import is larger than 4 MB. Use smaller assets so the browser can save the project."; input.value = ""; return; }
+		this.importStatus = `Importing ${selected.length} file${selected.length === 1 ? "" : "s"}...`;
+		try {
+			const imported: Record<string, string> = {};
+			const relativePaths = selected.map((file) => (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name);
+			const firstFolder = relativePaths[0]?.split("/")[0];
+			const stripFolder = Boolean(firstFolder && relativePaths.every((path) => path.startsWith(`${firstFolder}/`)));
+			for (let index = 0; index < selected.length; index++) {
+				const file = selected[index]!;
+				const relative = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
+				const path = normalizeFilePath(stripFolder ? relative.slice(firstFolder!.length + 1) : relative);
+				if (path) imported[path] = await fileToStoredValue(file);
+			}
+			updateActiveFiles((files) => ({ ...files, ...imported }));
+			this.selectedFile = Object.keys(imported)[0] ?? this.selectedFile;
+			this.importStatus = `Imported ${Object.keys(imported).length} file${Object.keys(imported).length === 1 ? "" : "s"}.`;
+		} catch { this.importStatus = "One or more files could not be imported."; }
+		input.value = "";
+	};
+
+	const applyTemplate = (event: Event) => {
+		const value = (event.target as HTMLSelectElement).value;
+		const template = PROJECT_TEMPLATES[value];
+		if (!template) return;
+		updateActiveFiles(() => ({ ...template }));
+		this.selectedFile = "/index.html";
+		this.importStatus = `${value[0]!.toUpperCase()}${value.slice(1)} template applied.`;
+		(event.target as HTMLSelectElement).value = "";
+	};
+
+	const saveSnapshot = () => {
+		const project = getActiveProject();
+		if (!project) return;
+		try {
+			const snapshots = JSON.parse(localStorage.getItem(PLAYGROUND_SNAPSHOTS_KEY) || "[]");
+			const next = [{ projectId: project.id, createdAt: Date.now(), files: project.files }, ...(Array.isArray(snapshots) ? snapshots : [])].slice(0, 10);
+			localStorage.setItem(PLAYGROUND_SNAPSHOTS_KEY, JSON.stringify(next));
+			this.importStatus = "Snapshot saved.";
+		} catch { this.importStatus = "Snapshot could not be saved because storage is full."; }
+	};
+
+	const restoreSnapshot = () => {
+		try {
+			const project = getActiveProject();
+			const snapshots = JSON.parse(localStorage.getItem(PLAYGROUND_SNAPSHOTS_KEY) || "[]");
+			const available = Array.isArray(snapshots) ? snapshots.filter((item) => item.projectId === project?.id) : [];
+			if (!available.length) { this.importStatus = "No snapshot exists for this project."; return; }
+			const choice = prompt(`Choose a snapshot number:\n${available.map((item, index) => `${index + 1}. ${new Date(item.createdAt).toLocaleString()}`).join("\n")}`, "1");
+			const snapshot = available[Math.max(0, Number(choice || 1) - 1)];
+			if (!snapshot?.files) return;
+			updateActiveFiles(() => ({ ...snapshot.files }));
+			this.selectedFile = Object.keys(snapshot.files)[0] ?? "/index.html";
+			this.importStatus = "Latest snapshot restored.";
+		} catch { this.importStatus = "Snapshot could not be restored."; }
+	};
+
+	const searchProject = () => {
+		const query = prompt("Search all project files for");
+		if (!query) return;
+		const match = Object.entries(getActiveFiles()).find(([, content]) => !isBinaryAsset(content) && content.toLowerCase().includes(query.toLowerCase()));
+		if (match) { this.selectedFile = match[0]; this.importStatus = `Found in ${displayFilePath(match[0])}.`; }
+		else this.importStatus = "No matching text was found.";
+	};
+
+	const validateProject = () => {
+		const files = getActiveFiles();
+		const problems: string[] = [];
+		if (!files["/index.html"]) problems.push("Missing /index.html");
+		for (const [path, content] of Object.entries(files)) {
+			if (isBinaryAsset(content) || !/\.html?$/i.test(path)) continue;
+			for (const match of content.matchAll(/(?:src|href)=["']([^"'#?]+)["']/gi)) {
+				const target = match[1]!;
+				if (/^(?:https?:|data:|mailto:|tel:)/i.test(target)) continue;
+				const resolved = new URL(target, `https://playground.local${path}`).pathname;
+				if (!(resolved in files)) problems.push(`${path}: missing ${resolved}`);
+			}
+		}
+		this.validationResults = problems.length ? problems.slice(0, 20) : ["Validation passed: entry page and local asset references look good."];
 	};
 
 	const updateActiveFiles = (
@@ -411,8 +555,16 @@ const PlaygroundView: Component<
 				return;
 			}
 
+			let servedBody = body;
+			if (!isBinaryAsset(body) && /\.html?$/i.test(filePath)) {
+				const consoleBridge = `<script>(()=>{const send=(level,args)=>parent.postMessage({source:'scramjet-playground-console',level,message:args.map(v=>{try{return typeof v==='string'?v:JSON.stringify(v)}catch{return String(v)}}).join(' ')},'*');for(const level of ['log','warn','error']){const original=console[level];console[level]=(...args)=>{send(level,args);original.apply(console,args)}}addEventListener('error',event=>send('error',[event.message]));addEventListener('unhandledrejection',event=>send('error',[String(event.reason)]));})();<\/script>`;
+				servedBody = /<\/body>/i.test(body) ? body.replace(/<\/body>/i, `${consoleBridge}</body>`) : `${body}${consoleBridge}`;
+			}
+			const responseBody = isBinaryAsset(servedBody)
+				? new Blob([dataUrlBytes(servedBody)], { type: servedBody.slice(5, servedBody.indexOf(";")) })
+				: servedBody;
 			props.earlyResponse = new Response(
-				context.request.method === "HEAD" ? null : body,
+				context.request.method === "HEAD" ? null : responseBody,
 				{
 					status: 200,
 					statusText: "OK",
@@ -557,6 +709,43 @@ const PlaygroundView: Component<
 		this.networkExported = true;
 	};
 
+	const downloadBlob = (blob: Blob, name: string) => {
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement("a"); link.href = url; link.download = name; link.click();
+		window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+	};
+
+	const exportSingleHtml = () => {
+		const files = getActiveFiles();
+		const source = files["/index.html"];
+		if (!source || isBinaryAsset(source)) { this.importStatus = "A text /index.html file is required for single-file export."; return; }
+		const documentCopy = new DOMParser().parseFromString(source, "text/html");
+		documentCopy.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"][href]').forEach((link) => {
+			const path = normalizeFilePath(link.getAttribute("href")!.replace(/^\.\//, ""));
+			const cssText = files[path];
+			if (cssText && !isBinaryAsset(cssText)) { const style = documentCopy.createElement("style"); style.textContent = cssText; link.replaceWith(style); }
+		});
+		documentCopy.querySelectorAll<HTMLScriptElement>("script[src]").forEach((script) => {
+			const path = normalizeFilePath(script.getAttribute("src")!.replace(/^\.\//, ""));
+			const jsText = files[path];
+			if (jsText && !isBinaryAsset(jsText)) { script.removeAttribute("src"); script.textContent = jsText; }
+		});
+		documentCopy.querySelectorAll<HTMLElement>("img[src],audio[src],video[src],source[src]").forEach((element) => {
+			const raw = element.getAttribute("src");
+			if (!raw) return;
+			const asset = files[normalizeFilePath(raw.replace(/^\.\//, ""))];
+			if (asset && isBinaryAsset(asset)) element.setAttribute("src", asset);
+		});
+		downloadBlob(new Blob([`<!doctype html>\n${documentCopy.documentElement.outerHTML}`], { type: "text/html" }), "index-single-file.html");
+		this.importStatus = "Single-file HTML exported. CSS and JavaScript references were inlined.";
+	};
+
+	const exportEditableProject = () => {
+		const project = getActiveProject();
+		if (!project) return;
+		downloadBlob(new Blob([JSON.stringify({ format: "scramjet-playground-project", version: 1, project }, null, 2)], { type: "application/json" }), `${project.name.replace(/[^a-z0-9_-]+/gi, "-") || "project"}.playground.json`);
+	};
+
 	const activeSignal = use(this.active ?? false, this.frame).map(
 		([active, frame]) => {
 			if (active && frame) {
@@ -578,7 +767,17 @@ const PlaygroundView: Component<
 		>
 			{activeSignal.map(() => null)}
 			<div class="editor-column">
-				<div class="section-title">Files</div>
+				<div class="section-title ide-toolbar"><span>Files</span><div class="ide-actions">
+					<label class="tool-button">Import files<input type="file" multiple on:change={importFiles} /></label>
+					<label class="tool-button">Import folder<input type="file" multiple webkitdirectory={true} on:change={importFiles} /></label>
+					<select class="tool-select" value="" on:change={applyTemplate}><option value="">Template…</option><option value="blank">Blank site</option><option value="portfolio">Portfolio</option><option value="game">Mini game</option></select>
+					<button type="button" class="tool-button" on:click={searchProject}>Search</button>
+					<button type="button" class="tool-button" on:click={saveSnapshot}>Snapshot</button>
+					<button type="button" class="tool-button" on:click={restoreSnapshot}>Restore</button>
+					<button type="button" class="tool-button" on:click={validateProject}>Validate</button>
+				</div></div>
+				{use(this.importStatus).map((status) => status ? <div class="ide-status">{status}</div> : null)}
+				{use(this.validationResults).map((results) => results.length ? <div class="validation-results">{results.map((result) => <div>{result}</div>)}</div> : null)}
 				<div class="editor-layout">
 					<div class="file-tree">
 						{use(this.projects, this.selectedProjectId, this.selectedFile).map(
@@ -808,12 +1007,13 @@ const PlaygroundView: Component<
 									projects.find(
 										(project) => project.id === selectedProjectId
 									) ?? projects[0];
-								return active?.files[selected] ?? "";
+								const value = active?.files[selected] ?? "";
+								return isBinaryAsset(value) ? `[Binary asset: ${displayFilePath(selected)}]\nThis file is preserved for preview and export.` : value;
 							})}
 							language={use(this.selectedFile).map((selected) =>
 								languageFromPath(selected)
 							)}
-							readOnly={false}
+							readOnly={use(this.selectedFile, this.projects, this.selectedProjectId).map(([selected, projects, projectId]) => isBinaryAsset((projects.find((project) => project.id === projectId)?.files[selected]) ?? ""))}
 							fill={true}
 							onSave={() => {
 								goPreview(this.frame, this.previewUrl);
@@ -824,7 +1024,7 @@ const PlaygroundView: Component<
 							onChange={(value) => {
 								const selected = this.selectedFile;
 								const files = getActiveFiles();
-								if (!(selected in files)) return;
+								if (!(selected in files) || isBinaryAsset(files[selected]!)) return;
 								updateActiveFiles((current) => ({
 									...current,
 									[selected]: value,
@@ -860,13 +1060,17 @@ const PlaygroundView: Component<
 					>
 						Rewritten
 					</button>
+					<select class="device-select" value={use(this.previewDevice)} on:change={(event: Event) => { this.previewDevice = (event.target as HTMLSelectElement).value as typeof this.previewDevice; }}><option value="responsive">Responsive</option><option value="phone">Phone</option><option value="ipad">iPad</option><option value="desktop">Desktop</option></select>
 					<button type="button" class="run-project-button" on:click={() => { this.runMenuOpen = !this.runMenuOpen; }}>Run project</button>
 				</div>
 				{use(this.runMenuOpen).map((open) => open ? <div class="run-panel">
 					<div class="run-option"><div><strong>This device</strong><span>Runs immediately in the private Scramjet preview on this device.</span></div><button type="button" on:click={() => { this.previewMode = "iframe"; goPreview(this.frame, this.previewUrl); this.runMenuOpen = false; }}>Run here</button></div>
-					<div class="run-option"><div><strong>Local network</strong><span>Exports a ZIP that a Mac, Windows PC, or Linux computer can serve to other devices on the same Wi-Fi.</span></div><button type="button" on:click={downloadNetworkBundle}>Download network ZIP</button></div>
+					<div class="run-option"><div><strong>Local network or GitHub Pages</strong><span>Exports a ZIP with Mac/Windows server launchers and an automatic GitHub Pages workflow.</span></div><button type="button" on:click={downloadNetworkBundle}>Download publish ZIP</button></div>
+					<div class="run-option"><div><strong>Single HTML file</strong><span>Combines index.html with referenced local CSS and JavaScript for easy sharing.</span></div><button type="button" on:click={exportSingleHtml}>Export HTML</button></div>
+					<div class="run-option"><div><strong>Editable project backup</strong><span>Saves all Playground files and project metadata for later recovery.</span></div><button type="button" on:click={exportEditableProject}>Export project</button></div>
 					{use(this.networkExported).map((ready) => ready ? <div class="network-steps"><strong>Next steps</strong><ol><li>Extract the downloaded ZIP on the host computer.</li><li>Open Terminal in that folder.</li><li>Run <code>python3 -m http.server 8080 --bind 0.0.0.0</code> on Mac/Linux, or <code>py -m http.server 8080 --bind 0.0.0.0</code> on Windows.</li><li>Other devices open <code>http://YOUR-COMPUTER-IP:8080</code>.</li></ol><p>The ZIP also contains these instructions. Use only on a network you trust.</p></div> : null)}
 				</div> : null)}
+				<details class="project-console"><summary>Console ({use(this.consoleLogs).map((logs) => logs.length)})</summary><div class="console-toolbar"><button type="button" on:click={() => { this.consoleLogs = []; }}>Clear</button></div><pre>{use(this.consoleLogs).map((logs) => logs.length ? logs.join("\n") : "No project logs yet.")}</pre></details>
 				{use(this.previewMode)
 					.map((mode) => mode === "iframe")
 					.andThen(
@@ -938,8 +1142,8 @@ const PlaygroundView: Component<
 					)}
 				>
 					<div
-						class={use(this.previewMode).map(
-							(m) => `preview-frame ${m === "iframe" ? "active" : "hidden"}`
+						class={use(this.previewMode, this.previewDevice).map(
+							([m, device]) => `preview-frame device-${device} ${m === "iframe" ? "active" : "hidden"}`
 						)}
 					>
 						{use(this.frame).map((f) => f?.element)}
@@ -1111,6 +1315,13 @@ PlaygroundView.style = css`
 		border-bottom: 1px solid #222;
 		background: #111;
 	}
+	.ide-toolbar { display: flex; align-items: center; gap: 10px; overflow-x: auto; padding: 0.45em 0.7em; }
+	.ide-toolbar > span { flex: 0 0 auto; }
+	.ide-actions { display: flex; align-items: center; gap: 5px; margin-left: auto; }
+	.tool-button, .tool-select { flex: 0 0 auto; border: 1px solid #30343b; background: #191b20; color: #d1d5db; padding: 5px 7px; font: inherit; font-size: 0.92em; letter-spacing: 0; text-transform: none; cursor: pointer; }
+	.tool-button input { display: none; }
+	.ide-status { padding: 5px 9px; border-bottom: 1px solid #273143; background: #111827; color: #a5b4fc; font-size: 0.72em; }
+	.validation-results { max-height: 100px; overflow: auto; padding: 6px 9px; border-bottom: 1px solid #3f3518; background: #29220e; color: #fde68a; font-size: 0.72em; line-height: 1.4; }
 	.editor-layout {
 		display: grid;
 		grid-template-columns: 200px minmax(0, 1fr);
@@ -1498,6 +1709,7 @@ PlaygroundView.style = css`
 		background: #111;
 		padding: 0;
 	}
+	.device-select { margin-left: auto; border: 0; border-left: 1px solid #222; background: #151515; color: #bbb; padding: 0 8px; font: inherit; font-size: 0.72em; }
 	.preview-tab {
 		border: 0;
 		background: transparent;
@@ -1520,7 +1732,7 @@ PlaygroundView.style = css`
 		color: #fff;
 	}
 	.run-project-button {
-		margin-left: auto;
+		margin-left: 0;
 		border: 0;
 		border-left: 1px solid #2c3d52;
 		background: #132033;
@@ -1541,6 +1753,11 @@ PlaygroundView.style = css`
 	.network-steps ol { margin: 7px 0; padding-left: 20px; }
 	.network-steps p { margin: 7px 0 0; color: #9fd6b4; }
 	.network-steps code { overflow-wrap: anywhere; color: #bfdbfe; }
+	.project-console { flex: 0 0 auto; max-height: 180px; overflow: auto; border-bottom: 1px solid #2b3442; background: #090b0f; color: #cbd5e1; font-size: 0.75em; }
+	.project-console summary { cursor: pointer; padding: 6px 9px; background: #11151c; }
+	.project-console pre { margin: 0; padding: 8px 10px; white-space: pre-wrap; overflow-wrap: anywhere; color: #a7f3d0; font: 11px/1.45 "SFMono-Regular", Consolas, monospace; }
+	.console-toolbar { display: flex; justify-content: flex-end; padding: 4px 8px 0; }
+	.console-toolbar button { border: 1px solid #343b47; background: #181c24; color: #bbb; cursor: pointer; font-size: 11px; }
 	.rewrite-meta {
 		display: flex;
 		align-items: center;
@@ -1595,6 +1812,7 @@ PlaygroundView.style = css`
 		min-height: 0;
 		display: flex;
 		position: relative;
+		overflow: auto;
 	}
 	.rewrite-pane {
 		flex: 1;
@@ -1619,6 +1837,9 @@ PlaygroundView.style = css`
 	.preview-frame.hidden {
 		display: none;
 	}
+	.preview-frame.device-phone { flex: 0 0 min(390px, 100%); width: min(390px, 100%); margin: 12px auto; min-height: 700px; box-shadow: 0 0 0 1px #374151; }
+	.preview-frame.device-ipad { flex: 0 0 min(820px, 100%); width: min(820px, 100%); margin: 12px auto; min-height: 900px; box-shadow: 0 0 0 1px #374151; }
+	.preview-frame.device-desktop { flex: 0 0 min(1280px, 100%); width: min(1280px, 100%); margin: 12px auto; min-height: 720px; box-shadow: 0 0 0 1px #374151; }
 	iframe {
 		border: 0;
 		width: 100%;
