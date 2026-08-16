@@ -43,13 +43,14 @@ export function selectTab(id: string) { tabsState.activeId = id; save(); return 
 export function closeTab(id: string) {
 	const tab = tabsState.tabs.find((item) => item.id === id);
 	if (!tab) return activeTab();
+	const wasActive = tabsState.activeId === id;
 	tabsState.closed = [tab, ...tabsState.closed].slice(0, 10);
 	let next = tabsState.tabs.filter((item) => item.id !== id);
 	if (!next.length) next = [{ id: crypto.randomUUID(), url: demoSettingsStore.homeUrl, title: "Home" }];
 	tabsState.tabs = next;
-	if (tabsState.activeId === id) tabsState.activeId = next[Math.max(0, next.length - 1)].id;
+	if (wasActive) tabsState.activeId = next[Math.max(0, next.length - 1)].id;
 	save();
-	return activeTab();
+	return wasActive ? activeTab() : undefined;
 }
 export function reopenClosed() {
 	const tab = tabsState.closed[0];

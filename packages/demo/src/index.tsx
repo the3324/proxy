@@ -187,7 +187,16 @@ async function init() {
 			},
 			scramjetConfig: defaultConfigDev,
 		});
-		await controller.wait();
+		await new Promise<void>((resolve, reject) => {
+			const timeout = window.setTimeout(
+				() => reject(new Error("Scramjet controller initialization timed out after 90 seconds.")),
+				90000
+			);
+			controller.wait().then(
+				() => { window.clearTimeout(timeout); resolve(); },
+				(error: unknown) => { window.clearTimeout(timeout); reject(error); }
+			);
+		});
 		console.log(controller);
 		interstitial.$.state.status = "Controller initialized";
 		interstitial.close();
