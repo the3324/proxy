@@ -10,6 +10,69 @@ if (!(globalThis as any).MonacoEnvironment) {
 	};
 }
 
+const completionMarker = "__scramjetPlaygroundCompletions";
+if (!(globalThis as any)[completionMarker]) {
+	(globalThis as any)[completionMarker] = true;
+	const register = (
+		languages: string[],
+		items: Array<{ label: string; detail: string; insertText: string }>
+	) => {
+		for (const language of languages) {
+			monaco.languages.registerCompletionItemProvider(language, {
+				triggerCharacters: ["."],
+				provideCompletionItems(model, position) {
+					const word = model.getWordUntilPosition(position);
+					const range = {
+						startLineNumber: position.lineNumber,
+						endLineNumber: position.lineNumber,
+						startColumn: word.startColumn,
+						endColumn: word.endColumn,
+					};
+					return {
+						suggestions: items.map((item) => ({
+							label: item.label,
+							kind: monaco.languages.CompletionItemKind.Snippet,
+							detail: item.detail,
+							insertText: item.insertText,
+							insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+							range,
+						})),
+					};
+				},
+			});
+		}
+	};
+
+	register(["javascript", "typescript"], [
+		{ label: "console.log", detail: "Log a value to the Playground console", insertText: "console.log(${1:value});" },
+		{ label: "console.error", detail: "Log an error", insertText: "console.error(${1:error});" },
+		{ label: "const", detail: "Create a constant", insertText: "const ${1:name} = ${2:value};" },
+		{ label: "function", detail: "Create a function", insertText: "function ${1:name}(${2:args}) {\n\t${0}\n}" },
+		{ label: "arrow function", detail: "Create an arrow function", insertText: "const ${1:name} = (${2:args}) => {\n\t${0}\n};" },
+		{ label: "addEventListener", detail: "Add an event listener", insertText: "${1:element}.addEventListener(\"${2:click}\", (${3:event}) => {\n\t${0}\n});" },
+		{ label: "querySelector", detail: "Find an element", insertText: "document.querySelector(\"${1:selector}\")" },
+		{ label: "fetch", detail: "Fetch JSON data", insertText: "const response = await fetch(\"${1:url}\");\nconst data = await response.json();\n${0}" },
+		{ label: "try/catch", detail: "Handle errors", insertText: "try {\n\t${1}\n} catch (error) {\n\tconsole.error(error);\n}" },
+	]);
+
+	register(["html"], [
+		{ label: "html document", detail: "Complete responsive HTML page", insertText: "<!doctype html>\n<html lang=\"en\">\n<head>\n\t<meta charset=\"utf-8\">\n\t<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n\t<title>${1:Page title}</title>\n</head>\n<body>\n\t${0}\n</body>\n</html>" },
+		{ label: "div", detail: "Division element", insertText: "<div class=\"${1:container}\">\n\t${0}\n</div>" },
+		{ label: "button", detail: "Accessible button", insertText: "<button type=\"button\">${1:Button}</button>" },
+		{ label: "img", detail: "Responsive image", insertText: "<img src=\"${1:image.png}\" alt=\"${2:Description}\">" },
+		{ label: "stylesheet", detail: "Link a stylesheet", insertText: "<link rel=\"stylesheet\" href=\"${1:style.css}\">" },
+		{ label: "script", detail: "Load a JavaScript module", insertText: "<script type=\"module\" src=\"${1:main.js}\"><\/script>" },
+	]);
+
+	register(["css"], [
+		{ label: "display flex", detail: "Flexible row/column layout", insertText: "display: flex;\nalign-items: ${1:center};\njustify-content: ${2:center};\ngap: ${3:1rem};" },
+		{ label: "display grid", detail: "Responsive grid layout", insertText: "display: grid;\ngrid-template-columns: repeat(auto-fit, minmax(${1:220px}, 1fr));\ngap: ${2:1rem};" },
+		{ label: "media query", detail: "Responsive breakpoint", insertText: "@media (max-width: ${1:768px}) {\n\t${0}\n}" },
+		{ label: "center page", detail: "Center content in the viewport", insertText: "min-height: 100vh;\ndisplay: grid;\nplace-items: center;" },
+		{ label: "custom property", detail: "CSS variable", insertText: "--${1:name}: ${2:value};" },
+	]);
+}
+
 type MonacoProps = {
 	value: string;
 	language?: string;
@@ -32,6 +95,11 @@ const Monaco: Component<MonacoProps, {}, { instance?: any }> = function (cx) {
 			lineNumbers: "on",
 			renderLineHighlight: "none",
 			theme: "vs-dark",
+			quickSuggestions: { other: true, comments: false, strings: true },
+			suggestOnTriggerCharacters: true,
+			acceptSuggestionOnEnter: "on",
+			tabCompletion: "on",
+			snippetSuggestions: "top",
 		});
 
 		this.instance.onDidChangeModelContent(() => {
