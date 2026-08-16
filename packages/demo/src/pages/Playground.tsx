@@ -183,6 +183,57 @@ const requestPathToFilePath = (pathname: string) => {
 	return path;
 };
 
+const crcTable = (() => {
+	const table = new Uint32Array(256);
+	for (let n = 0; n < 256; n++) {
+		let value = n;
+		for (let bit = 0; bit < 8; bit++) value = (value & 1) ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+		table[n] = value >>> 0;
+	}
+	return table;
+})();
+
+const crc32 = (bytes: Uint8Array) => {
+	let crc = 0xffffffff;
+	for (const byte of bytes) crc = crcTable[(crc ^ byte) & 0xff]! ^ (crc >>> 8);
+	return (crc ^ 0xffffffff) >>> 0;
+};
+
+const zipProject = (files: Record<string, string>) => {
+	const encoder = new TextEncoder();
+	const chunks: Uint8Array[] = [];
+	const central: Uint8Array[] = [];
+	let offset = 0;
+	const u16 = (view: DataView, at: number, value: number) => view.setUint16(at, value, true);
+	const u32 = (view: DataView, at: number, value: number) => view.setUint32(at, value, true);
+	const allFiles = {
+		...files,
+		"/README_LOCAL_NETWORK.txt": `RUN ON YOUR LOCAL NETWORK\n\n1. Extract this ZIP.\n2. Open Terminal or Command Prompt inside the extracted folder.\n\nMac / Linux:\n  python3 -m http.server 8080 --bind 0.0.0.0\n\nWindows:\n  py -m http.server 8080 --bind 0.0.0.0\n\nOn the host computer open:\n  http://localhost:8080\n\nOn another device using the same Wi-Fi open:\n  http://YOUR-COMPUTER-IP:8080\n\nFind a Mac Wi-Fi address:\n  ipconfig getifaddr en0\n\nFind a Windows address:\n  ipconfig\n\nStop the server with Control+C. Only share on a network you trust.\n`,
+	};
+	for (const [rawName, content] of Object.entries(allFiles)) {
+		const safeName = rawName.replace(/^\/+/, "").split("/").filter((part) => part && part !== "." && part !== "..").join("/");
+		if (!safeName) continue;
+		const name = encoder.encode(safeName);
+		const data = encoder.encode(content);
+		const checksum = crc32(data);
+		const local = new Uint8Array(30 + name.length + data.length);
+		const localView = new DataView(local.buffer);
+		u32(localView, 0, 0x04034b50); u16(localView, 4, 20); u16(localView, 6, 0x0800); u16(localView, 8, 0);
+		u32(localView, 14, checksum); u32(localView, 18, data.length); u32(localView, 22, data.length); u16(localView, 26, name.length);
+		local.set(name, 30); local.set(data, 30 + name.length); chunks.push(local);
+		const entry = new Uint8Array(46 + name.length);
+		const entryView = new DataView(entry.buffer);
+		u32(entryView, 0, 0x02014b50); u16(entryView, 4, 20); u16(entryView, 6, 20); u16(entryView, 8, 0x0800);
+		u32(entryView, 16, checksum); u32(entryView, 20, data.length); u32(entryView, 24, data.length); u16(entryView, 28, name.length); u32(entryView, 42, offset);
+		entry.set(name, 46); central.push(entry); offset += local.length;
+	}
+	const centralSize = central.reduce((sum, entry) => sum + entry.length, 0);
+	const end = new Uint8Array(22);
+	const endView = new DataView(end.buffer);
+	u32(endView, 0, 0x06054b50); u16(endView, 8, central.length); u16(endView, 10, central.length); u32(endView, 12, centralSize); u32(endView, 16, offset);
+	return new Blob([...chunks, ...central, end], { type: "application/zip" });
+};
+
 const PlaygroundView: Component<
 	{
 		active?: boolean;
@@ -204,6 +255,8 @@ const PlaygroundView: Component<
 		rewrittenContentType: string;
 		rewriteStatus: string;
 		rewriteFile: string;
+		runMenuOpen: boolean;
+		networkExported: boolean;
 	},
 	{}
 > = function (cx) {
@@ -222,6 +275,8 @@ const PlaygroundView: Component<
 	this.rewrittenContentType ??= "";
 	this.rewriteStatus ??= "Idle";
 	this.rewriteFile ??= "";
+	this.runMenuOpen ??= false;
+	this.networkExported ??= false;
 
 	cx.mount = async () => {
 		await controller.wait();
@@ -488,6 +543,18 @@ const PlaygroundView: Component<
 			console.error("Playground rewrite failed", error);
 			this.rewriteStatus = "Failed";
 		}
+	};
+
+	const downloadNetworkBundle = () => {
+		const project = getActiveProject();
+		if (!project) return;
+		const blobUrl = URL.createObjectURL(zipProject(project.files));
+		const link = document.createElement("a");
+		link.href = blobUrl;
+		link.download = `${project.name.replace(/[^a-z0-9_-]+/gi, "-").replace(/^-|-$/g, "") || "playground-project"}.zip`;
+		link.click();
+		window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+		this.networkExported = true;
 	};
 
 	const activeSignal = use(this.active ?? false, this.frame).map(
@@ -793,7 +860,13 @@ const PlaygroundView: Component<
 					>
 						Rewritten
 					</button>
+					<button type="button" class="run-project-button" on:click={() => { this.runMenuOpen = !this.runMenuOpen; }}>Run project</button>
 				</div>
+				{use(this.runMenuOpen).map((open) => open ? <div class="run-panel">
+					<div class="run-option"><div><strong>This device</strong><span>Runs immediately in the private Scramjet preview on this device.</span></div><button type="button" on:click={() => { this.previewMode = "iframe"; goPreview(this.frame, this.previewUrl); this.runMenuOpen = false; }}>Run here</button></div>
+					<div class="run-option"><div><strong>Local network</strong><span>Exports a ZIP that a Mac, Windows PC, or Linux computer can serve to other devices on the same Wi-Fi.</span></div><button type="button" on:click={downloadNetworkBundle}>Download network ZIP</button></div>
+					{use(this.networkExported).map((ready) => ready ? <div class="network-steps"><strong>Next steps</strong><ol><li>Extract the downloaded ZIP on the host computer.</li><li>Open Terminal in that folder.</li><li>Run <code>python3 -m http.server 8080 --bind 0.0.0.0</code> on Mac/Linux, or <code>py -m http.server 8080 --bind 0.0.0.0</code> on Windows.</li><li>Other devices open <code>http://YOUR-COMPUTER-IP:8080</code>.</li></ol><p>The ZIP also contains these instructions. Use only on a network you trust.</p></div> : null)}
+				</div> : null)}
 				{use(this.previewMode)
 					.map((mode) => mode === "iframe")
 					.andThen(
@@ -1446,6 +1519,28 @@ PlaygroundView.style = css`
 		background: #1f1f1f;
 		color: #fff;
 	}
+	.run-project-button {
+		margin-left: auto;
+		border: 0;
+		border-left: 1px solid #2c3d52;
+		background: #132033;
+		color: #dbeafe;
+		padding: 0.65em 1em;
+		font: inherit;
+		font-size: 0.78em;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	.run-project-button:hover { background: #1b304d; }
+	.run-panel { position: relative; z-index: 5; display: grid; gap: 8px; padding: 10px; border-bottom: 1px solid #334155; background: #0d121a; color: #e5e7eb; }
+	.run-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px; border: 1px solid #2b3442; background: #141a23; }
+	.run-option > div { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+	.run-option span { color: #9ca3af; font-size: 0.78em; line-height: 1.4; }
+	.run-option button { flex: 0 0 auto; min-height: 36px; border: 1px solid #3b82f6; background: #172a45; color: #fff; padding: 7px 10px; cursor: pointer; }
+	.network-steps { padding: 11px; border: 1px solid #31553e; background: #102218; color: #d1fae5; font-size: 0.78em; line-height: 1.45; }
+	.network-steps ol { margin: 7px 0; padding-left: 20px; }
+	.network-steps p { margin: 7px 0 0; color: #9fd6b4; }
+	.network-steps code { overflow-wrap: anywhere; color: #bfdbfe; }
 	.rewrite-meta {
 		display: flex;
 		align-items: center;
@@ -1561,6 +1656,8 @@ PlaygroundView.style = css`
 			flex-direction: column;
 			align-items: stretch;
 		}
+		.run-option { align-items: stretch; flex-direction: column; }
+		.run-option button { min-height: 44px; font-size: 16px; }
 	}
 `;
 export default PlaygroundView;
