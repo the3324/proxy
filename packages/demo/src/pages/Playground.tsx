@@ -152,11 +152,26 @@ const saveProjects = (projects: PlaygroundProject[]) => {
 };
 
 const languageFromPath = (path: string) => {
-	if (path.endsWith(".html")) return "html";
-	if (path.endsWith(".css")) return "css";
-	if (path.endsWith(".js") || path.endsWith(".mjs")) return "javascript";
-	if (path.endsWith(".ts")) return "typescript";
-	if (path.endsWith(".json")) return "json";
+	const name = path.toLowerCase().split("/").pop() ?? "";
+	const extension = name.includes(".") ? name.split(".").pop() ?? "" : "";
+	const languages: Record<string, string> = {
+		htm: "html", html: "html", css: "css", scss: "scss", less: "less",
+		js: "javascript", mjs: "javascript", cjs: "javascript", jsx: "javascript",
+		ts: "typescript", mts: "typescript", cts: "typescript", tsx: "typescript",
+		json: "json", jsonc: "json", md: "markdown", markdown: "markdown",
+		py: "python", pyw: "python", java: "java", c: "c", h: "c",
+		cc: "cpp", cpp: "cpp", cxx: "cpp", hpp: "cpp", cs: "csharp",
+		go: "go", rs: "rust", php: "php", rb: "ruby", swift: "swift",
+		kt: "kotlin", kts: "kotlin", dart: "dart", lua: "lua", r: "r",
+		sh: "shell", bash: "shell", zsh: "shell", fish: "shell",
+		sql: "sql", yaml: "yaml", yml: "yaml", xml: "xml", svg: "xml",
+		vue: "html", svelte: "html", dockerfile: "dockerfile",
+	};
+	if (name === "dockerfile" || name.startsWith("dockerfile.")) return "dockerfile";
+	if (name === "makefile") return "plaintext";
+	if (name === ".bashrc" || name === ".zshrc") return "shell";
+	if (name === ".gitignore" || name === ".env") return "plaintext";
+	if (languages[extension]) return languages[extension];
 	return "plaintext";
 };
 
