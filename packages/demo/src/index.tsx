@@ -105,6 +105,15 @@ async function init() {
 	);
 	document.body.append(interstitial);
 	interstitial.showModal();
+	const isAppleWebKit = /AppleWebKit/i.test(navigator.userAgent) &&
+		(/iPad|iPhone|iPod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+	if (isAppleWebKit && localStorage.getItem("scramjet-ipad-cache-v1") !== "1") {
+		interstitial.$.state.status = "Preparing iPad compatibility mode...";
+		try {
+			await Promise.all((await caches.keys()).map((name) => caches.delete(name)));
+		} catch {}
+		localStorage.setItem("scramjet-ipad-cache-v1", "1");
+	}
 
 	try {
 		const registration = await navigator.serviceWorker.register("./sw.js");

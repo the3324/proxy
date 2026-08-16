@@ -16,6 +16,8 @@ const DEFAULT_WISP_URL =
 		? "wss://anura.pro/"
 		: `ws://${location.host}/wisp/`);
 const DEFAULT_TRANSPORT: AvailableTransports = "libcurl";
+const IS_APPLE_WEBKIT = /AppleWebKit/i.test(navigator.userAgent) &&
+	(/iPad|iPhone|iPod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
 const DEFAULT_HOME_URL = "https://google.com";
 const DEFAULT_MAX_REQUESTS = 200;
 const DEFAULT_APP_NAME = "Scramjet Browser";
@@ -31,7 +33,7 @@ const DEFAULT_SHORTCUTS = [
 
 export const demoSettingsStore = createStore(
 	{
-		transport: DEFAULT_TRANSPORT as AvailableTransports,
+		transport: (IS_APPLE_WEBKIT ? "epoxy" : DEFAULT_TRANSPORT) as AvailableTransports,
 		wispUrl: DEFAULT_WISP_URL,
 		homeUrl: DEFAULT_HOME_URL,
 		maxRequests: DEFAULT_MAX_REQUESTS,
@@ -54,6 +56,14 @@ export const demoSettingsStore = createStore(
 		autosave: "auto",
 	}
 );
+
+// One-time migration for existing iPad installs that previously persisted the
+// Libcurl default before the Apple compatibility preset existed.
+if (IS_APPLE_WEBKIT && localStorage.getItem("scramjet-ipad-transport-v1") !== "1") {
+	demoSettingsStore.transport = "epoxy";
+	demoSettingsStore.compatibilityMode = "safari";
+	localStorage.setItem("scramjet-ipad-transport-v1", "1");
+}
 
 export function normalizeWispUrl(value: string) {
 	const trimmed = value.trim();
@@ -165,7 +175,7 @@ export function normalizeShortcuts(value: string) {
 
 export const demoSettingsDefaults = {
 	wispUrl: normalizeWispUrl(DEFAULT_WISP_URL),
-	transport: DEFAULT_TRANSPORT,
+	transport: IS_APPLE_WEBKIT ? "epoxy" as const : DEFAULT_TRANSPORT,
 	homeUrl: normalizeHomeUrl(DEFAULT_HOME_URL),
 	maxRequests: DEFAULT_MAX_REQUESTS,
 	appName: DEFAULT_APP_NAME,

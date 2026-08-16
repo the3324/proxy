@@ -21,6 +21,9 @@ export const browserState = createState({
 	frame: null! as Frame,
 });
 
+const isAppleWebKit = /AppleWebKit/i.test(navigator.userAgent) &&
+	(/iPad|iPhone|iPod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+
 let keyboardShortcutsInstalled = false;
 
 function escapeHtml(value: string) {
@@ -279,7 +282,9 @@ const BrowserView: Component<
 	cx.mount = async () => {
 		await controller.wait();
 		browserState.frame = controller.createFrame(this.frameel);
-		cachePlugin.install(browserState.frame);
+		// Scramjet's response cache can retain rewritten/binary responses that
+		// WebKit later refuses to decode. Keep it disabled on iPadOS/iOS.
+		if (!isAppleWebKit) cachePlugin.install(browserState.frame);
 		const openfix = new ScramjetPlugin("openfix");
 		openfix.tap(
 			browserState.frame.hooks.fetch.intercept,

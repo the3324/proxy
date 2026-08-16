@@ -30,6 +30,15 @@ const DiagnosticsView: Component<{}, {}, { status: string; latency: number }> = 
 		});
 	};
 
+	const repairAppleImages = async () => {
+		this.status = "Clearing cached proxy responses...";
+		await Promise.all((await caches.keys()).map((name) => caches.delete(name)));
+		this.status = "Cache cleared. Reloading with Epoxy...";
+		demoSettingsStore.transport = "epoxy";
+		demoSettingsStore.compatibilityMode = "safari";
+		window.setTimeout(() => location.reload(), 400);
+	};
+
 	const failedRequests = use(requestsState.requests).map(
 		(requests) => requests.filter((request) => (request.status ?? 0) >= 400).length
 	);
@@ -59,6 +68,10 @@ const DiagnosticsView: Component<{}, {}, { status: string; latency: number }> = 
 					<p>{use(this.status)} {use(this.latency).map((latency) => latency ? `(${latency} ms)` : "")}</p>
 				</div>
 				<button type="button" on:click={testConnection}>Test connection</button>
+			</div>
+			<div class="connection-test">
+				<div><h3>iPad image repair</h3><p>Clears cached rewritten responses and switches the transport to Epoxy.</p></div>
+				<button type="button" on:click={repairAppleImages}>Repair and reload</button>
 			</div>
 			<div class="help-grid">
 				<div><h3>Images missing</h3><p>Try Epoxy in Settings. On Apple devices, Safari/WebKit may still fail on some image formats.</p></div>
